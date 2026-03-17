@@ -1,0 +1,29 @@
+# Flutter Configuration
+# Este archivo contiene la configuración de Flutter para este proyecto
+
+# Ruta de Flutter instalado en el sistema
+FLUTTER_PATH=C:\flutter
+
+# Ruta del ejecutable de Flutter
+FLUTTER_BIN=C:\flutter\bin\flutter.bat
+
+# Versión de Flutter
+FLUTTER_VERSION=3.38.9
+
+# Versión de Dart
+DART_VERSION=3.10.8
+
+# Canal de Flutter
+FLUTTER_CHANNEL=stable
+
+# Última actualización de dependencias
+LAST_DEPENDENCY_UPDATE=2026-02-24
+
+# Dependencias actualizadas
+DEPENDENCIES_UPDATED=34
+
+# Notas:
+# - Usar siempre la ruta completa: C:\flutter\bin\flutter.bat
+# - Para actualizar dependencias: C:\flutter\bin\flutter.bat pub upgrade
+# - Para limpiar cache: C:\flutter\bin\flutter.bat clean
+# - Para compilar: C:\flutter\bin\flutter.bat build [platform]

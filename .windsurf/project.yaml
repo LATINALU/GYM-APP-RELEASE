@@ -1,0 +1,40 @@
+# Quantum Flutter Project Configuration
+# ======================================
+
+# Project Name
+name: Quantum
+
+# Project Type
+type: flutter
+
+# Framework
+framework: flutter
+
+# Description
+description: "Quantum - Fitness Intelligence with Clean Architecture"
+
+# Main Entry Point
+main: lib/main.dart
+
+# Admin Entry Point (development-only)
+admin_dev: lib/main_admin.dart
+
+# Configuration File
+config: .windsurf/analysis_options.yaml
+
+# Dart SDK Version
+sdk: '>=3.4.4 <4.0.0'
+
+# Flutter Version
+flutter: '3.19.0+'
+
+# Environment
+environment:
+  development: true
+  production: false
+
+# Code Style
+code_style:
+  indent: 2
+  line_length: 100
+  quotes: single

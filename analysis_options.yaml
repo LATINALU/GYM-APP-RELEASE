@@ -1,0 +1,74 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.config.dart"
+    - "lib/firebase_options.dart"
+    - "lib/**/*.config.dart"
+    - "lib/utillities/**"  # Excluir código legacy
+    - "lib/models/**"  # Excluir modelos legacy
+  errors:
+    # Errores críticos (mantener como error)
+    missing_required_param: error
+    missing_return: error
+    argument_type_not_assignable: error
+    undefined_class: error
+    undefined_function: error
+    undefined_method: error
+    # Convertir warnings molestos a info o ignorar
+    prefer_final_locals: info
+    non_constant_identifier_names: info
+    file_names: info
+    require_trailing_commas: ignore
+    use_build_context_synchronously: warning
+    avoid_print: info
+    deprecated_member_use: info
+    unused_import: info
+    unused_local_variable: info
+    unused_element: info
+    unnecessary_brace_in_string_interps: ignore
+    unnecessary_library_name: ignore
+    prefer_single_quotes: info
+    prefer_const_constructors: info
+    curly_braces_in_flow_control_structures: warning
+    unrelated_type_equality_checks: info
+    dangling_library_doc_comments: ignore
+    invalid_use_of_visible_for_testing_member: warning
+
+linter:
+  rules:
+    # Reglas importantes (mantener activas)
+    prefer_const_constructors: true
+    avoid_print: true
+    prefer_single_quotes: true
+    always_declare_return_types: true
+    avoid_empty_else: true
+    avoid_relative_lib_imports: true
+    curly_braces_in_flow_control_structures: true
+    no_duplicate_case_values: true
+    prefer_contains: true
+    use_build_context_synchronously: true
+    
+    # Reglas molestas (desactivar para reducir warnings)
+    prefer_final_locals: false
+    require_trailing_commas: false
+    prefer_const_declarations: false
+    
+    # Reglas útiles (mantener)
+    prefer_final_fields: true
+    avoid_shadowing_type_parameters: true
+    avoid_types_as_parameter_names: true
+    empty_catches: true
+    empty_constructor_bodies: true
+    prefer_for_elements_to_map_fromIterable: true
+    prefer_if_null_operators: true
+    prefer_iterable_wheretype: true
+    prefer_void_async_null: true
+    recursive_getters: true
+    unnecessary_null_aware_operator: true
+    unnecessary_statements: true
+    unrelated_constructor_contracts: true
+    use_string_buffers: true
+    use_super_parameters: true

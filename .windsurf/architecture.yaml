@@ -1,0 +1,51 @@
+# Quantum Architecture Rules
+# =============================
+# Clean Architecture + Hexagonal Design Guidelines
+
+layers:
+  domain:
+    description: "Core business logic - No external dependencies"
+    rules:
+      - "NO imports from infrastructure or presentation layers"
+      - "Define entities, value objects, and port interfaces"
+      - "Use Equatable for entity equality"
+      - "Implement factory constructors for entity creation"
+      - "Use Value Objects for typed validation"
+
+  application:
+    description: "Use cases and orchestration"
+    rules:
+      - "Implement business use cases"
+      - "Use dartz Either for error handling"
+      - "Inject repositories via constructor"
+      - "Keep business logic independent of UI"
+
+  infrastructure:
+    description: "External implementations and adapters"
+    rules:
+      - "Implement port interfaces from domain"
+      - "Handle Firebase, APIs, and storage"
+      - "Use mappers to transform data"
+      - "Register dependencies in DI container"
+
+  presentation:
+    description: "UI/UX and state management"
+    rules:
+      - "Use BLoC for state management"
+      - "Implement GoRouter for navigation"
+      - "Apply Quantum UX design system"
+      - "Keep UI logic separate from business"
+
+naming:
+  entities: PascalCase
+  use_cases: PascalCase with UseCase suffix
+  repositories: PascalCase with RepositoryPort suffix
+  screens: PascalCase with Screen suffix
+  blocs: PascalCase with Bloc suffix
+  widgets: PascalCase with Widget suffix
+
+dependencies:
+  injection: GetIt
+  state: Flutter BLoC
+  routing: GoRouter
+  backend: Firebase (Firestore, Auth, Messaging)

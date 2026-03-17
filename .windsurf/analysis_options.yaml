@@ -1,0 +1,49 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    avoid_print: true
+    require_trailing_commas: true
+    prefer_single_quotes: true
+    always_declare_return_types: true
+    avoid_empty_else: true
+    avoid_relative_lib_imports: true
+    avoid_shadowing_type_parameters: true
+    avoid_types_as_parameter_names: true
+    curly_braces_in_flow_control_structures: true
+    empty_catches: true
+    empty_constructor_bodies: true
+    no_duplicate_case_values: true
+    prefer_contains: true
+    prefer_for_elements_to_map_fromIterable: true
+    prefer_if_null_operators: true
+    prefer_iterable_wheretype: true
+    prefer_void_async_null: true
+    recursive_getters: true
+    unnecessary_null_aware_operator: true
+    unnecessary_statements: true
+    unrelated_constructor_contracts: true
+    unsafe_html: true
+    use_string_buffers: true
+    use_super_parameters: true
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.config.dart"
+    - "lib/firebase_options.dart"
+    - "lib/**/*.config.dart"
+  errors:
+    missing_required_param: error
+    missing_return: error
+    argument_type_not_assignable: error
+    type_non_string_runtime: error
+    undefined_class: error
+    undefined_function: error
+    undefined_method: error
+    undefined_null_aware_operator: warning

@@ -1,0 +1,711 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Get the requesting user's UID
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Check if the authenticated user is an admin
+    function isAdmin() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(uid())) &&
+        (
+          get(/databases/$(database)/documents/users/$(uid())).data.role == 'admin' ||
+          (
+            get(/databases/$(database)/documents/users/$(uid())).data.role is map &&
+            get(/databases/$(database)/documents/users/$(uid())).data.role.type == 'admin'
+          )
+        );
+    }
+
+    // Validate that gymId field in existing resource matches route gymId
+    function resourceGymMatches(gymId) {
+      return !('gymId' in resource.data) ||
+          resource.data.gymId == gymId;
+    }
+
+    // Validate that gymId field in incoming write matches route gymId
+    function requestGymMatches(gymId) {
+      return !('gymId' in request.resource.data) ||
+          request.resource.data.gymId == gymId;
+    }
+
+    // Validate gymId check depending on write type (create/update/delete)
+    function writeGymMatches(gymId) {
+      return request.method == 'delete'
+          ? resourceGymMatches(gymId)
+          : requestGymMatches(gymId);
+    }
+
+    // Check if there is a profile and requester belongs to the same gymId
+    function profileGymMatches(gymId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(uid())) &&
+        get(/databases/$(database)/documents/users/$(uid())).data.gymId == gymId;
+    }
+
+    // Check if a user document exists and belongs to the same gymId
+    function userGymMatches(userId, gymId) {
+      return userId is string &&
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.gymId == gymId;
+    }
+
+    // Validate that targetGymId field, when present, matches route gymId
+    function requestTargetGymMatches(gymId) {
+      return !('targetGymId' in request.resource.data) ||
+          request.resource.data.targetGymId == gymId;
+    }
+
+    // Validate targetGymId in create/update/delete (when present)
+    function writeTargetGymMatches(gymId) {
+      return request.method == 'delete'
+          ? (!('targetGymId' in resource.data) || resource.data.targetGymId == gymId)
+          : requestTargetGymMatches(gymId);
+    }
+
+    // Check profile role (string or map)
+    function hasRole(roleName) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/users/$(uid())) &&
+        (
+          get(/databases/$(database)/documents/users/$(uid())).data.role == roleName ||
+          (
+            get(/databases/$(database)/documents/users/$(uid())).data.role is map &&
+            get(/databases/$(database)/documents/users/$(uid())).data.role.type == roleName
+          )
+        );
+    }
+
+    // Check if requester is owner role and belongs to gymId
+    function isOwnerRoleOfGym(gymId) {
+      return profileGymMatches(gymId) && hasRole('owner');
+    }
+
+    // Check if requester is employee role and belongs to gymId
+    function isEmployeeRoleOfGym(gymId) {
+      return profileGymMatches(gymId) && hasRole('employee');
+    }
+
+    // Check if requester is client role and belongs to gymId
+    function isClientRoleOfGym(gymId) {
+      return profileGymMatches(gymId) && hasRole('client');
+    }
+
+    // Check if requester has staff role (owner/employee) and belongs to gymId
+    function isStaffRoleOfGym(gymId) {
+      return isOwnerRoleOfGym(gymId) || isEmployeeRoleOfGym(gymId);
+    }
+
+    // Check if requester has any allowed role in gymId (admin bypass)
+    function hasGymRole(gymId) {
+      return isAdmin() || isStaffRoleOfGym(gymId) || isClientRoleOfGym(gymId);
+    }
+
+    // Check if nested gym membership document exists for owner
+    function ownerDocExists(gymId) {
+      return exists(/databases/$(database)/documents/gyms/$(gymId)/owners/$(uid()));
+    }
+
+    // Check if nested gym membership document exists for employee
+    function employeeDocExists(gymId) {
+      return exists(/databases/$(database)/documents/gyms/$(gymId)/employees/$(uid()));
+    }
+
+    // Check if nested gym membership document exists for client
+    function clientDocExists(gymId) {
+      return exists(/databases/$(database)/documents/gyms/$(gymId)/clients/$(uid()));
+    }
+
+    // Check if requester is effective owner of gym (role + nested membership)
+    function isOwnerOfGym(gymId) {
+      return isAuth() &&
+        isOwnerRoleOfGym(gymId) &&
+        ownerDocExists(gymId);
+    }
+
+    // Check if requester is effective staff of gym (owner/employee role + nested membership)
+    function isStaffOfGym(gymId) {
+      return isAuth() && (
+        isOwnerOfGym(gymId) ||
+        (
+          isEmployeeRoleOfGym(gymId) &&
+          employeeDocExists(gymId)
+        )
+      );
+    }
+
+    // Check if the user is a member of a gym
+    function isMemberOfGym(gymId) {
+      return isAuth() &&
+        isClientRoleOfGym(gymId) &&
+        clientDocExists(gymId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GLOBAL USER PROFILES
+    // ═══════════════════════════════════════════════════════════════════
+    
+    match /users/{userId} {
+      // Users can read their own profile
+      // Admins can read any profile
+      allow read: if isAuth() && (uid() == userId || isAdmin());
+      
+      // Users can only create their own profile during registration
+      allow create: if isAuth() && uid() == userId;
+      
+      // Users can update their own profile, admins can update any
+      allow update: if isAuth() && (uid() == userId || isAdmin());
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GYMS
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /gyms/{gymId} {
+      // Strict multi-tenant read: only same-gym users or admins
+      allow read: if isAdmin() || isStaffOfGym(gymId) || isMemberOfGym(gymId);
+      
+      // Only admins can create gyms (during business registration)
+      allow create: if isAdmin();
+      
+      // Only gym owners or admins can update gym settings
+      allow update: if isOwnerOfGym(gymId) || isAdmin();
+      
+      // Only admins can delete gyms
+      allow delete: if isAdmin();
+
+      // --- GYM SUB-COLLECTIONS ---
+
+      // Owners of the gym
+      match /owners/{ownerId} {
+        allow read: if isAuth() && (isOwnerOfGym(gymId) || isAdmin());
+        allow write: if (isAdmin() || isOwnerOfGym(gymId)) &&
+          writeGymMatches(gymId);
+      }
+
+      // Employees of the gym
+      match /employees/{employeeId} {
+        allow read: if isStaffOfGym(gymId) || isAdmin();
+        allow write: if (isOwnerOfGym(gymId) || isAdmin()) &&
+          writeGymMatches(gymId);
+      }
+
+      // Clients of the gym
+      match /clients/{clientId} {
+        allow read: if isAuth() && (
+          uid() == clientId ||         // Own data
+          isStaffOfGym(gymId) ||       // Staff can view clients
+          isAdmin()
+        );
+        allow create: if (isStaffOfGym(gymId) || isAdmin()) &&
+          requestGymMatches(gymId);
+        allow update: if isAuth() && (
+          uid() == clientId ||
+          isStaffOfGym(gymId) ||
+          isAdmin()
+        ) && requestGymMatches(gymId);
+        allow delete: if isOwnerOfGym(gymId) || isAdmin();
+      }
+
+      // Pending requests (pre-approval queue)
+      match /pending_requests/{requestId} {
+        // Staff can view pending requests for their gym
+        allow read: if isStaffOfGym(gymId) || isAdmin();
+        
+        // User can create only their own request and only for this gymId path
+        allow create: if isAuth() &&
+          request.resource.data.userId == uid() &&
+          requestTargetGymMatches(gymId);
+        
+        // Only staff or admin can update (approve/reject)
+        allow update: if (isStaffOfGym(gymId) || isAdmin()) &&
+          writeTargetGymMatches(gymId);
+        
+        // Staff or admin can delete processed requests
+        allow delete: if isStaffOfGym(gymId) || isAdmin();
+      }
+
+      // Access codes for the gym
+      match /access_codes/{codeId} {
+        // Only staff can view codes
+        allow read: if isStaffOfGym(gymId) || isAdmin();
+        
+        // Only owner/admin can generate codes
+        allow create: if (isOwnerOfGym(gymId) || isAdmin()) &&
+          requestGymMatches(gymId);
+        
+        // Strict: only staff/admin can consume/update codes
+        allow update: if (isStaffOfGym(gymId) || isAdmin()) &&
+          requestGymMatches(gymId);
+        
+        // Only owner/admin can delete (revoke)
+        allow delete: if isOwnerOfGym(gymId) || isAdmin();
+      }
+
+      // Financial data
+      match /transactions/{transactionId} {
+        allow read: if isOwnerOfGym(gymId) || isAdmin();
+        allow write: if (isOwnerOfGym(gymId) || isAdmin()) &&
+          writeGymMatches(gymId);
+      }
+
+      // Audit logs
+      match /audit_log/{logId} {
+        allow read: if isOwnerOfGym(gymId) || isAdmin();
+        allow create: if (isStaffOfGym(gymId) || isAdmin()) &&
+          requestGymMatches(gymId);
+        allow update, delete: if false; // Immutable
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CANONICAL GLOBAL GYM-SCOPED COLLECTIONS
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /routines/{routineId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isStaffOfGym(resource.data.gymId) || isMemberOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          request.resource.data.createdBy == uid() &&
+          userGymMatches(request.resource.data.createdBy, request.resource.data.gymId) &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          request.resource.data.createdBy == resource.data.createdBy &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (
+            isStaffOfGym(resource.data.gymId) ||
+            (isMemberOfGym(resource.data.gymId) && resource.data.clientId == uid())
+          )
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          request.resource.data.assignedById == uid() &&
+          userGymMatches(request.resource.data.assignedById, request.resource.data.gymId) &&
+          userGymMatches(request.resource.data.clientId, request.resource.data.gymId) &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          request.resource.data.clientId == resource.data.clientId &&
+          request.resource.data.assignedById == resource.data.assignedById &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /check_ins/{checkInId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (
+            isStaffOfGym(resource.data.gymId) ||
+            (isMemberOfGym(resource.data.gymId) && resource.data.clientId == uid())
+          )
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          userGymMatches(request.resource.data.clientId, request.resource.data.gymId) &&
+          (
+            isStaffOfGym(request.resource.data.gymId) ||
+            (
+              isMemberOfGym(request.resource.data.gymId) &&
+              request.resource.data.clientId == uid()
+            )
+          )
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          request.resource.data.clientId == resource.data.clientId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isOwnerOfGym(resource.data.gymId) || isStaffOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isOwnerOfGym(resource.data.gymId) || isStaffOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          (
+            isStaffOfGym(request.resource.data.gymId) ||
+            (
+              request.resource.data.userId == uid() &&
+              userGymMatches(request.resource.data.userId, request.resource.data.gymId)
+            )
+          )
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          (
+            isStaffOfGym(resource.data.gymId) ||
+            (
+              resource.data.userId == uid() &&
+              userGymMatches(resource.data.userId, resource.data.gymId)
+            )
+          )
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (
+            isStaffOfGym(resource.data.gymId) ||
+            (
+              resource.data.userId == uid() &&
+              userGymMatches(resource.data.userId, resource.data.gymId)
+            )
+          )
+        )
+      );
+    }
+
+    match /daily_closings/{closingId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isOwnerOfGym(resource.data.gymId) || isStaffOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          request.resource.data.closed_by == uid() &&
+          userGymMatches(request.resource.data.closed_by, request.resource.data.gymId) &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /access_logs/{logId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isOwnerOfGym(resource.data.gymId) || isStaffOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          (
+            isStaffOfGym(request.resource.data.gymId) ||
+            (
+              request.resource.data.userId == uid() &&
+              userGymMatches(request.resource.data.userId, request.resource.data.gymId)
+            )
+          )
+        )
+      );
+
+      allow update, delete: if false;
+    }
+
+    match /pos_sales/{saleId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isOwnerOfGym(resource.data.gymId) || isStaffOfGym(resource.data.gymId))
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    match /memberships/{membershipId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (
+            isOwnerOfGym(resource.data.gymId) ||
+            isStaffOfGym(resource.data.gymId) ||
+            (resource.data.userId == uid() && isMemberOfGym(resource.data.gymId))
+          )
+        )
+      );
+
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          request.resource.data.userId == resource.data.userId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GLOBAL PENDING REGISTRATIONS
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /pending_registrations/{registrationId} {
+      // Users can read their own registrations
+      // Admins can read all
+      allow read: if isAuth() && (
+        resource.data.userId == uid() ||
+        isAdmin() ||
+        (
+          resource.data.targetGymId is string &&
+          isStaffOfGym(resource.data.targetGymId)
+        )
+      );
+      
+      // Authenticated users can create registrations
+      allow create: if isAuth() &&
+        request.resource.data.userId == uid() &&
+        (
+          !('targetGymId' in request.resource.data) ||
+          request.resource.data.targetGymId == null ||
+          exists(/databases/$(database)/documents/gyms/$(request.resource.data.targetGymId))
+        );
+      
+      // Users can cancel their own, admins can update any
+      allow update: if isAuth() && (
+        resource.data.userId == uid() ||
+        isAdmin() ||
+        (
+          resource.data.targetGymId is string &&
+          isStaffOfGym(resource.data.targetGymId)
+        )
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GLOBAL ACCESS CODES (lookup by code value)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /access_codes/{codeId} {
+      // Strict: only gym staff/admin can read global code index
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      
+      // Strict: only owner/admin can create and must target own gym
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isOwnerOfGym(request.resource.data.gymId)
+        )
+      );
+      
+      // Strict: only staff/admin can update and cannot change gymId
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          request.resource.data.gymId == resource.data.gymId &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      
+      // Owner/admin can revoke/delete only within own gym
+      allow delete: if isAdmin() || (
+        resource.data.gymId is string &&
+        isOwnerOfGym(resource.data.gymId)
+      );
+    }
+  }
+}

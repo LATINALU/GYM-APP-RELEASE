@@ -1,0 +1,222 @@
+##############################################################################
+# GYM-APP Production Docker Compose
+# VPS: 147.93.191.92 | Path: /root/projects/gym-app/
+#
+# Integrates with VPS centralized structure:
+#   /root/databases/postgres/  → PostgreSQL data persistence
+#   /root/logs/gym-app/        → Application logs
+#   /root/backups/gym-app/     → Database backups
+#
+# Usage on VPS:
+#   cd /root/projects/gym-app
+#   docker compose -f docker-compose.gym-app.yml up -d
+##############################################################################
+
+version: '3.8'
+
+services:
+  # ═══════════════════════════════════════════════════════════════════
+  # PostgreSQL Database (InsForge custom image with JWT + crypto)
+  # Data persisted to /root/databases/postgres/gym-app/
+  # ═══════════════════════════════════════════════════════════════════
+  gymapp-postgres:
+    image: ghcr.io/insforge/postgres:v15.13.2
+    container_name: gymapp-postgres
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c app.encryption_key='${ENCRYPTION_KEY:-${JWT_SECRET:-change-me-in-production}}'
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-gymapp}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gymapp_secret_CHANGE_ME}
+      - POSTGRES_DB=${POSTGRES_DB:-gymapp}
+    volumes:
+      # Persistent data on VPS host
+      - /root/databases/postgres/gym-app:/var/lib/postgresql/data
+      # InsForge init scripts
+      - ./backend/deploy/docker-init/db/db-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./backend/deploy/docker-init/db/jwt.sql:/docker-entrypoint-initdb.d/02-jwt.sql
+      - ./backend/deploy/docker-init/db/postgresql.conf:/etc/postgresql/postgresql.conf
+      # GYM-APP custom schema (runs after InsForge init)
+      - ./backend/deploy/docker-init/db/gym-app-schema.sql:/docker-entrypoint-initdb.d/03-gym-app-schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - gymapp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gymapp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════
+  # PostgREST - Auto REST API from PostgreSQL
+  # Exposed on port 5430 (internal), proxied via Nginx
+  # ═══════════════════════════════════════════════════════════════════
+  gymapp-postgrest:
+    image: postgrest/postgrest:v12.2.12
+    container_name: gymapp-postgrest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-gymapp}:${POSTGRES_PASSWORD:-gymapp_secret_CHANGE_ME}@gymapp-postgres:5432/${POSTGRES_DB:-gymapp}
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3000
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
+      PGRST_DB_CHANNEL_ENABLED: true
+      PGRST_DB_CHANNEL: pgrst
+    ports:
+      - "5430:3000"
+    depends_on:
+      gymapp-postgres:
+        condition: service_healthy
+    networks:
+      - gymapp-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # InsForge Backend (Auth + Storage + API)
+  # Main API on port 7130, proxied via Nginx at /api
+  # ═══════════════════════════════════════════════════════════════════
+  gymapp-insforge:
+    image: node:20-alpine
+    container_name: gymapp-insforge
+    working_dir: /app
+    depends_on:
+      gymapp-postgres:
+        condition: service_healthy
+    ports:
+      - "7130:7130"
+      - "7131:7131"
+      - "7132:7132"
+    environment:
+      - PORT=7130
+      - PROJECT_ROOT=/app
+      - API_BASE_URL=${API_BASE_URL:-http://147.93.191.92:7130}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://147.93.191.92:7130}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production-min-32-chars}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-superadmin@gym-app.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-super123}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      # PostgreSQL connection (internal Docker network)
+      - POSTGRES_HOST=gymapp-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-gymapp}
+      - POSTGRES_USER=${POSTGRES_USER:-gymapp}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gymapp_secret_CHANGE_ME}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-gymapp}:${POSTGRES_PASSWORD:-gymapp_secret_CHANGE_ME}@gymapp-postgres:5432/${POSTGRES_DB:-gymapp}
+      - POSTGREST_BASE_URL=http://gymapp-postgrest:3000
+      # Deno Runtime
+      - DENO_RUNTIME_URL=http://gymapp-deno:7133
+      # Storage (local filesystem on VPS)
+      - STORAGE_DIR=/insforge-storage
+      - LOGS_DIR=/insforge-logs
+      # S3 (optional - leave empty to use local storage)
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-}
+      # OAuth (optional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+    volumes:
+      - ./backend/package.json:/app/package.json
+      - ./backend/backend:/app/backend
+      - ./backend/frontend:/app/frontend
+      - ./backend/auth:/app/auth
+      - ./backend/shared-schemas:/app/shared-schemas
+      - ./backend/docs:/app/docs
+      - gymapp_node_modules:/app/node_modules
+      - gymapp_backend_modules:/app/backend/node_modules
+      - gymapp_frontend_modules:/app/frontend/node_modules
+      - gymapp_auth_modules:/app/auth/node_modules
+      - gymapp_schemas_modules:/app/shared-schemas/node_modules
+      # Logs and storage persisted on VPS host
+      - /root/logs/gym-app:/insforge-logs
+      - /root/projects/gym-app/storage:/insforge-storage
+    command: sh -c "npm install && cd backend && npm run migrate:up && cd .. && npm run dev"
+    restart: unless-stopped
+    networks:
+      - gymapp-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Deno Runtime (Edge Functions / Serverless)
+  # ═══════════════════════════════════════════════════════════════════
+  gymapp-deno:
+    image: denoland/deno:alpine-2.0.6
+    container_name: gymapp-deno
+    working_dir: /app
+    depends_on:
+      - gymapp-postgres
+      - gymapp-postgrest
+    ports:
+      - "7133:7133"
+    environment:
+      - PORT=7133
+      - DENO_ENV=production
+      - DENO_DIR=/deno-dir
+      - POSTGRES_HOST=gymapp-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-gymapp}
+      - POSTGRES_USER=${POSTGRES_USER:-gymapp}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gymapp_secret_CHANGE_ME}
+      - POSTGREST_BASE_URL=http://gymapp-postgrest:3000
+      - WORKER_TIMEOUT_MS=${WORKER_TIMEOUT_MS:-60000}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production-min-32-chars}
+    volumes:
+      - ./backend/functions:/app/functions
+      - gymapp_deno_cache:/deno-dir
+    command: >
+      sh -c "
+        echo 'Starting Deno server...' &&
+        deno cache functions/server.ts &&
+        deno run --allow-net --allow-env --allow-read=./functions/worker-template.js functions/server.ts
+      "
+    restart: unless-stopped
+    networks:
+      - gymapp-network
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Vector (Log Collection & Shipping)
+  # ═══════════════════════════════════════════════════════════════════
+  gymapp-vector:
+    container_name: gymapp-vector
+    image: timberio/vector:0.28.1-alpine
+    restart: unless-stopped
+    depends_on:
+      gymapp-postgres:
+        condition: service_healthy
+      gymapp-postgrest:
+        condition: service_started
+      gymapp-insforge:
+        condition: service_started
+    volumes:
+      - ./backend/deploy/docker-init/logs/vector.yml:/etc/vector/vector.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /root/logs/gym-app:/insforge-logs
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-skip}
+    command: ["--config", "/etc/vector/vector.yml"]
+    networks:
+      - gymapp-network
+
+volumes:
+  gymapp_node_modules:
+    driver: local
+  gymapp_backend_modules:
+    driver: local
+  gymapp_frontend_modules:
+    driver: local
+  gymapp_auth_modules:
+    driver: local
+  gymapp_schemas_modules:
+    driver: local
+  gymapp_deno_cache:
+    driver: local
+
+networks:
+  gymapp-network:
+    driver: bridge

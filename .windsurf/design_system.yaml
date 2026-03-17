@@ -1,0 +1,76 @@
+# Quantum Design System - Quantum UX
+# ======================================
+
+colors:
+  primary: "#00E0FF"
+  secondary: "#00FFE0"
+  accent: "#8B5CF6"
+  background: "#0F0F12"
+  surface: "#1A1A21"
+  error: "#FF3860"
+  success: "#00FFE0"
+  warning: "#FFD600"
+
+typography:
+  primary: "Inter"
+  mono: "JetBrains Mono"
+  weights:
+    light: 200
+    regular: 400
+    medium: 500
+    bold: 700
+
+spacing:
+  xs: 4
+  s: 8
+  m: 16
+  l: 24
+  xl: 32
+  xxl: 48
+
+border_radius:
+  s: 8
+  m: 12
+  l: 16
+  xl: 24
+  round: 100
+
+components:
+  buttons:
+    primary:
+      background: "quantumBlue"
+      foreground: "nebulaWhite"
+      border_radius: 16
+      elevation: 0
+    secondary:
+      background: "voidGray"
+      foreground: "quantumBlue"
+      border: "quantumBlue"
+    sizes:
+      small:
+        height: 36
+        font_size: 12
+      medium:
+        height: 48
+        font_size: 14
+      large:
+        height: 56
+        font_size: 16
+
+  cards:
+    background: "voidGray"
+    border_radius: 16
+    elevation: 0
+    border_opacity: 0.08
+
+  inputs:
+    background: "voidGray"
+    border_radius: 16
+    border_color: "subtleBorder"
+    focused_border_color: "quantumBlue"
+
+  navigation:
+    bottom_nav:
+      background: "voidGray"
+      selected_color: "quantumBlue"
+      unselected_color: "textSecondary"
