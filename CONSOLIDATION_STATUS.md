@@ -30,14 +30,14 @@
 
 ### Funcionalidades Eliminadas
 - ✅ Rutas de chatbot eliminadas
-- ✅ Importaciones de vistas legacy de GainWave eliminadas
+- ✅ Importaciones de vistas legacy anteriores eliminadas
 - ✅ Referencias a ChatApp/IA eliminadas del router
 
 ## 🔄 En Progreso
 
 ### Pendiente
 - ⏳ Actualizar referencias a HomeBloc en TrainingDashboardScreen (métodos internos)
-- ⏳ Eliminar archivos legacy de GainWave (Views/)
+- ⏳ Eliminar archivos legacy anteriores (Views/)
 - ⏳ Limpiar ejercicios pre-creados en inglés
 - ⏳ Ejecutar pruebas E2E en dispositivo/emulador con backend disponible
 - ⏳ Resolver bloqueo local de tooling (`Dart 3.7.2` vs `flutter_lints ^6.0.0`)
@@ -76,7 +76,7 @@
 1. Ejecutar `flutter test test/e2e_minimal_flows_test.dart`
 2. Ejecutar E2E real en emulador/dispositivo (auth/rutina/pago con backend)
 3. Actualizar métodos internos en TrainingDashboardScreen que aún referencian HomeBloc
-4. Eliminar carpeta Views/ legacy de GainWave
+4. Eliminar carpeta Views/ legacy anterior
 5. Limpiar datos de ejercicios pre-creados
 
 ## 📊 Progreso: 78%

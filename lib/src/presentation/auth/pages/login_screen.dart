@@ -62,6 +62,10 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  void _handleGoogleLogin() {
+    context.read<AuthBloc>().add(const GoogleLoginRequested());
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -111,6 +115,25 @@ class _LoginScreenState extends State<LoginScreen>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGoogleButton(bool isLoading) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton.icon(
+        onPressed: isLoading ? null : _handleGoogleLogin,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+        icon: const Icon(Icons.login_rounded),
+        label: const Text(
+          'Continuar con Google',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -240,7 +263,26 @@ class _LoginScreenState extends State<LoginScreen>
             // Login Button
             BlocBuilder<AuthBloc, AuthState>(
               builder: (context, state) {
-                return _buildLoginButton(state is AuthLoading);
+                final isLoading = state is AuthLoading;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildLoginButton(isLoading),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('o', style: TextStyle(color: Colors.white38)),
+                        ),
+                        Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildGoogleButton(isLoading),
+                  ],
+                );
               },
             ),
           ],

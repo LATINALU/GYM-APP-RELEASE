@@ -163,7 +163,7 @@ service cloud.firestore {
       allow read: if isAuth() && (uid() == userId || isAdmin());
       
       // Users can only create their own profile during registration
-      allow create: if isAuth() && uid() == userId;
+      allow create: if isAuth() && (uid() == userId || isAdmin());
       
       // Users can update their own profile, admins can update any
       allow update: if isAuth() && (uid() == userId || isAdmin());

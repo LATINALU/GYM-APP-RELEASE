@@ -51,3 +51,7 @@ backend/shared-schemas/node_modules/
 backend/mcp/node_modules/
 backend/.env
 backend/dist/
+rust-services/**/target/
+rust-services/**/member_numbers.db
+rust-services/**/member_numbers.db-*
+test-users.local.json

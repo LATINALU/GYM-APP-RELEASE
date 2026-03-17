@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/types/typedefs.dart';
 import '../../../domain/entities/entities.dart';
@@ -21,6 +23,133 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
   CollectionReference<Map<String, dynamic>> get _usersRef =>
       _firestore.collection(_usersCollection);
 
+  String? _claimAsString(dynamic value) {
+    if (value == null) return null;
+    if (value is String && value.trim().isNotEmpty) return value;
+    return value.toString();
+  }
+
+  PersonName _personNameFromIdentity({
+    required String email,
+    String? displayName,
+  }) {
+    final normalizedDisplayName = displayName?.trim() ?? '';
+    if (normalizedDisplayName.isNotEmpty) {
+      final parts = normalizedDisplayName
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList();
+      if (parts.isNotEmpty) {
+        return PersonName(
+          firstName: parts.first,
+          lastName: parts.skip(1).join(' '),
+        );
+      }
+    }
+
+    final fallbackParts = email
+        .split('@')
+        .first
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), ' ')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    return PersonName(
+      firstName: fallbackParts.isNotEmpty ? fallbackParts.first : 'Usuario',
+      lastName: fallbackParts.length > 1 ? fallbackParts.skip(1).join(' ') : '',
+    );
+  }
+
+  Future<GymId?> _resolveGymIdFromCode(GymCode? gymCode) async {
+    if (gymCode == null) return null;
+
+    final snapshot = await _firestore
+        .collection('gyms')
+        .where('code', isEqualTo: gymCode.value)
+        .where('isActive', isEqualTo: true)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return null;
+    }
+
+    return GymId(snapshot.docs.first.id);
+  }
+
+  Future<({User? user, String token})> _resolveCurrentUser(
+    fb.User firebaseUser, {
+    bool forceRefreshToken = false,
+  }) async {
+    final idTokenResult = await firebaseUser.getIdTokenResult(forceRefreshToken);
+    final token = idTokenResult.token ?? '';
+    var gymId = _claimAsString(idTokenResult.claims?['gymId']);
+    var role = _claimAsString(idTokenResult.claims?['role']);
+
+    Map<String, dynamic>? userData;
+
+    if (gymId != null && role != null && role != GymRoleType.admin.name) {
+      final userDoc = await _firestore
+          .collection('gyms')
+          .doc(gymId)
+          .collection('${role}s')
+          .doc(firebaseUser.uid)
+          .get();
+
+      if (userDoc.exists && userDoc.data() != null) {
+        userData = userDoc.data();
+      }
+    }
+
+    if (userData == null) {
+      final rootDoc = await _usersRef.doc(firebaseUser.uid).get();
+      if (rootDoc.exists && rootDoc.data() != null) {
+        final rootData = rootDoc.data()!;
+        userData = rootData;
+        gymId ??= rootData['gymId']?.toString();
+        role ??= _claimAsString(rootData['role']);
+      }
+    }
+
+    if (userData == null) {
+      return (user: null, token: token);
+    }
+
+    return (
+      user: UserMapper.fromFirestore(userData, firebaseUser.uid),
+      token: token,
+    );
+  }
+
+  Future<void> _syncUserRootProfile(
+    User user, {
+    String? photoUrl,
+  }) async {
+    await _usersRef.doc(user.id.value).set({
+      ...UserMapper.toFirestore(user),
+      if (photoUrl != null && photoUrl.isNotEmpty) 'photoUrl': photoUrl,
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _syncUserNestedProfile(User user) async {
+    if (user.role.type == GymRoleType.admin) {
+      return;
+    }
+
+    final nestedRef = _firestore
+        .collection('gyms')
+        .doc(user.gymId.value)
+        .collection('${user.role.type.name}s')
+        .doc(user.id.value);
+
+    final nestedDoc = await nestedRef.get();
+    if (nestedDoc.exists) {
+      await nestedRef.set(UserMapper.toFirestore(user), SetOptions(merge: true));
+    }
+  }
+
   @override
   FutureResult<AuthResult> login(AuthCredentials credentials) async {
     try {
@@ -34,58 +163,24 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
         return left(AuthFailure.invalidCredentials());
       }
 
-      // 1. Get custom claims from token to find the user in the nested structure
-      final idTokenResult = await firebaseUser.getIdTokenResult(
-        true,
-      ); // force refresh to get latest claims
-      final gymId = idTokenResult.claims?['gymId'] as String?;
-      final role = idTokenResult.claims?['role'] as String?;
-
-      if (gymId == null || role == null) {
-        // Fallback or Error: if claims are missing, we might have a global users collection or it's a new user
-        // For this architecture, claims are required.
-        return left(
-          const ServerFailure(
-            message: 'Sesión inválida: Faltan permisos de gimnasio (claims)',
-          ),
-        );
-      }
-
-      // 2. Get user data from nested Firestore path: gyms/{gymId}/{role}s/{uid}
-      final collectionName = '${role}s';
-      final userDoc =
-          await _firestore
-              .collection('gyms')
-              .doc(gymId)
-              .collection(collectionName)
-              .doc(firebaseUser.uid)
-              .get();
-
-      if (!userDoc.exists || userDoc.data() == null) {
+      final resolved = await _resolveCurrentUser(
+        firebaseUser,
+        forceRefreshToken: true,
+      );
+      final user = resolved.user;
+      if (user == null) {
         return left(AuthFailure.userNotFound());
       }
 
-      final user = UserMapper.fromFirestore(userDoc.data()!, userDoc.id);
-
-      // 3. Update last login
-      final nowIso = DateTime.now().toIso8601String();
-      await _firestore
-          .collection('gyms')
-          .doc(gymId)
-          .collection(collectionName)
-          .doc(user.id.value)
-          .update({'lastLoginAt': nowIso});
-
-      // Keep global users index in sync
-      await _usersRef.doc(user.id.value).set({
-        ...UserMapper.toFirestore(user),
-        'lastLoginAt': nowIso,
-        'gymId': gymId,
-        'role': role,
-      }, SetOptions(merge: true));
+      final loggedInUser = user.recordLogin();
+      await _syncUserNestedProfile(loggedInUser);
+      await _syncUserRootProfile(
+        loggedInUser,
+        photoUrl: firebaseUser.photoURL,
+      );
 
       return right(
-        AuthResult(user: user.recordLogin(), token: idTokenResult.token ?? ''),
+        AuthResult(user: loggedInUser, token: resolved.token),
       );
     } on fb.FirebaseAuthException catch (e) {
       return left(_mapFirebaseAuthError(e));
@@ -126,7 +221,8 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
         );
       }
 
-      // 2. Create domain user
+      await userCredential.user?.updateDisplayName(name.fullName);
+
       final user = User.create(
         email: email,
         name: name,
@@ -147,31 +243,17 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
         phone: user.phone,
         createdAt: user.createdAt,
         isActive: true,
+        membershipStatus: user.membershipStatus,
+        weight: user.weight,
+        height: user.height,
+        fitnessGoal: user.fitnessGoal,
+        membershipExpiresAt: user.membershipExpiresAt,
+        memberNumber: user.memberNumber,
+        memberNumberAssignedAt: user.memberNumberAssignedAt,
       );
 
-      // 3. Save to Firestore nested collection: gyms/{gymId}/{role}s/{uid}
-      // Note: role.toValue().toLowerCase() + 's' produces owners, employees, clients
-      final collectionName = '${role.type.name}s';
+      await _syncUserRootProfile(userWithFirebaseId);
 
-      // If orphan, maybe save in a different path? For now sticking to gym structure
-      // But ideally: if effectiveGymId == orphan, save in /users or /pending_users
-
-      await _firestore
-          .collection('gyms')
-          .doc(effectiveGymId.value)
-          .collection(collectionName)
-          .doc(uid)
-          .set(UserMapper.toFirestore(userWithFirebaseId));
-
-      // 3b. Save to global users index
-      await _usersRef
-          .doc(uid)
-          .set(
-            UserMapper.toFirestore(userWithFirebaseId),
-            SetOptions(merge: true),
-          );
-
-      // 4. Get token
       final token = await userCredential.user!.getIdToken() ?? '';
 
       return right(AuthResult(user: userWithFirebaseId, token: token));
@@ -183,6 +265,190 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
       );
     } catch (e) {
       return left(ServerFailure(message: 'Error inesperado: $e'));
+    }
+  }
+
+  @override
+  FutureResult<AuthResult> signInWithGoogle({
+    GymCode? gymCode,
+  }) async {
+    try {
+      final provider = fb.GoogleAuthProvider();
+      provider.addScope('email');
+      provider.setCustomParameters({'prompt': 'select_account'});
+
+      final userCredential = kIsWeb
+          ? await _firebaseAuth.signInWithPopup(provider)
+          : await _firebaseAuth.signInWithProvider(provider);
+
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null || firebaseUser.email == null) {
+        return left(const AuthFailure(message: 'No se pudo completar el acceso con Google'));
+      }
+
+      final resolved = await _resolveCurrentUser(
+        firebaseUser,
+        forceRefreshToken: true,
+      );
+
+      User user;
+      if (resolved.user != null) {
+        user = resolved.user!;
+      } else {
+        final resolvedGymId = await _resolveGymIdFromCode(gymCode);
+        if (gymCode != null && resolvedGymId == null) {
+          return left(const ServerFailure(
+            message: 'Gimnasio no encontrado con ese código',
+          ));
+        }
+
+        final name = _personNameFromIdentity(
+          email: firebaseUser.email!,
+          displayName: firebaseUser.displayName,
+        );
+
+        final baseUser = User.create(
+          email: Email(firebaseUser.email!),
+          name: name,
+          role: const GymRole.client(),
+          gymId: resolvedGymId ?? const GymId('orphan-gym'),
+        );
+
+        user = User.restore(
+          id: UserId(firebaseUser.uid),
+          email: baseUser.email,
+          name: baseUser.name,
+          role: baseUser.role,
+          gymId: baseUser.gymId,
+          phone: baseUser.phone,
+          createdAt: baseUser.createdAt,
+          isActive: true,
+          membershipStatus: baseUser.membershipStatus,
+          weight: baseUser.weight,
+          height: baseUser.height,
+          fitnessGoal: baseUser.fitnessGoal,
+          membershipExpiresAt: baseUser.membershipExpiresAt,
+          memberNumber: baseUser.memberNumber,
+          memberNumberAssignedAt: baseUser.memberNumberAssignedAt,
+        );
+      }
+
+      final loggedInUser = user.recordLogin();
+      await _syncUserNestedProfile(loggedInUser);
+      await _syncUserRootProfile(
+        loggedInUser,
+        photoUrl: firebaseUser.photoURL,
+      );
+
+      return right(
+        AuthResult(user: loggedInUser, token: resolved.token),
+      );
+    } on fb.FirebaseAuthException catch (e) {
+      return left(_mapFirebaseAuthError(e));
+    } on fb.FirebaseException catch (e) {
+      return left(
+        ServerFailure(message: 'Error de Firebase: ${e.message}', code: e.code),
+      );
+    } catch (e) {
+      return left(ServerFailure(message: 'Error inesperado: $e'));
+    }
+  }
+
+  @override
+  FutureResult<AuthResult> provisionUser({
+    required Email email,
+    required String password,
+    required PersonName name,
+    required GymRole role,
+    required GymId gymId,
+    PhoneNumber? phone,
+  }) async {
+    FirebaseApp? secondaryApp;
+    fb.FirebaseAuth? secondaryAuth;
+    fb.User? provisionedUser;
+    var profilePersisted = false;
+
+    try {
+      secondaryApp = await Firebase.initializeApp(
+        name: 'admin-provision-${DateTime.now().microsecondsSinceEpoch}',
+        options: Firebase.app().options,
+      );
+      secondaryAuth = fb.FirebaseAuth.instanceFor(app: secondaryApp);
+
+      final userCredential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: email.value,
+        password: password,
+      );
+
+      provisionedUser = userCredential.user;
+      if (provisionedUser == null) {
+        return left(
+          const ServerFailure(
+            message: 'Error al crear cuenta en Firebase Auth',
+          ),
+        );
+      }
+
+      await provisionedUser.updateDisplayName(name.fullName);
+
+      final baseUser = User.create(
+        email: email,
+        name: name,
+        role: role,
+        gymId: gymId,
+        phone: phone,
+      );
+
+      final persistedUser = User.restore(
+        id: UserId(provisionedUser.uid),
+        email: baseUser.email,
+        name: baseUser.name,
+        role: baseUser.role,
+        gymId: baseUser.gymId,
+        phone: baseUser.phone,
+        createdAt: baseUser.createdAt,
+        isActive: true,
+        membershipStatus: baseUser.membershipStatus,
+        weight: baseUser.weight,
+        height: baseUser.height,
+        fitnessGoal: baseUser.fitnessGoal,
+        membershipExpiresAt: baseUser.membershipExpiresAt,
+        memberNumber: baseUser.memberNumber,
+        memberNumberAssignedAt: baseUser.memberNumberAssignedAt,
+      );
+
+      await _firestore
+          .collection('gyms')
+          .doc(gymId.value)
+          .collection('${role.type.name}s')
+          .doc(persistedUser.id.value)
+          .set(UserMapper.toFirestore(persistedUser));
+
+      await _syncUserRootProfile(persistedUser);
+      profilePersisted = true;
+
+      final token = await provisionedUser.getIdToken() ?? '';
+      return right(AuthResult(user: persistedUser, token: token));
+    } on fb.FirebaseAuthException catch (e) {
+      return left(_mapFirebaseAuthError(e));
+    } on fb.FirebaseException catch (e) {
+      return left(
+        ServerFailure(message: 'Error de Firebase: ${e.message}', code: e.code),
+      );
+    } catch (e) {
+      return left(ServerFailure(message: 'Error inesperado: $e'));
+    } finally {
+      if (!profilePersisted && provisionedUser != null) {
+        try {
+          await provisionedUser.delete();
+        } catch (_) {}
+      }
+      try {
+        await secondaryAuth?.signOut();
+      } catch (_) {}
+      try {
+        await secondaryApp?.delete();
+      } catch (_) {}
     }
   }
 
@@ -211,25 +477,8 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
         return right(null);
       }
 
-      final idTokenResult = await firebaseUser.getIdTokenResult();
-      final gymId = idTokenResult.claims?['gymId'] as String?;
-      final role = idTokenResult.claims?['role'] as String?;
-
-      if (gymId == null || role == null) return right(null);
-
-      final userDoc =
-          await _firestore
-              .collection('gyms')
-              .doc(gymId)
-              .collection('${role}s')
-              .doc(firebaseUser.uid)
-              .get();
-
-      if (!userDoc.exists || userDoc.data() == null) {
-        return right(null);
-      }
-
-      return right(UserMapper.fromFirestore(userDoc.data()!, userDoc.id));
+      final resolved = await _resolveCurrentUser(firebaseUser);
+      return right(resolved.user);
     } on fb.FirebaseException catch (e) {
       return left(
         ServerFailure(
@@ -290,16 +539,16 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
   @override
   FutureVoidResult updateProfile(User user) async {
     try {
-      await _firestore
-          .collection('gyms')
-          .doc(user.gymId.value)
-          .collection('${user.role.type.name}s')
-          .doc(user.id.value)
-          .update(UserMapper.toFirestore(user));
+      if (user.role.type != GymRoleType.admin) {
+        await _firestore
+            .collection('gyms')
+            .doc(user.gymId.value)
+            .collection('${user.role.type.name}s')
+            .doc(user.id.value)
+            .set(UserMapper.toFirestore(user), SetOptions(merge: true));
+      }
 
-      await _usersRef
-          .doc(user.id.value)
-          .set(UserMapper.toFirestore(user), SetOptions(merge: true));
+      await _syncUserRootProfile(user);
 
       return right(null);
     } on fb.FirebaseException catch (e) {
@@ -322,24 +571,8 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
       }
 
       try {
-        final idTokenResult = await firebaseUser.getIdTokenResult();
-        final gymId = idTokenResult.claims?['gymId'] as String?;
-        final role = idTokenResult.claims?['role'] as String?;
-
-        if (gymId == null || role == null) return null;
-
-        final userDoc =
-            await _firestore
-                .collection('gyms')
-                .doc(gymId)
-                .collection('${role}s')
-                .doc(firebaseUser.uid)
-                .get();
-
-        if (!userDoc.exists || userDoc.data() == null) {
-          return null;
-        }
-        return UserMapper.fromFirestore(userDoc.data()!, userDoc.id);
+        final resolved = await _resolveCurrentUser(firebaseUser);
+        return resolved.user;
       } catch (e) {
         return null;
       }
@@ -355,6 +588,8 @@ class FirebaseAuthRepository implements AuthRepositoryPort {
       case 'user-not-found':
         return AuthFailure.userNotFound();
       case 'wrong-password':
+      case 'invalid-credential':
+      case 'invalid-login-credentials':
         return AuthFailure.invalidCredentials();
       case 'email-already-in-use':
         return AuthFailure.emailAlreadyInUse();

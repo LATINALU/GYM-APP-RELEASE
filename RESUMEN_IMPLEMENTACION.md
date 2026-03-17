@@ -57,25 +57,22 @@
 **Funcionalidades**:
 - ✅ QR Scanner para check-in de clientes
 - ✅ Gestión de rutinas (ver/asignar)
-- ❌ NO puede crear ejercicios
-- ❌ NO puede gestionar finanzas
-- ⚠️ **PENDIENTE**: Pantalla dedicada de gestión de rutinas
 
 **Permisos**: Tentáculo del dueño con acceso limitado
 
 ---
 
 ### Nivel 3: CLIENTE (Client/Usuario)
-**Credenciales**: `alex@quantum.com / 666666`
+**Credenciales**: definidas localmente en `test-users.local.json`
 **Ruta**: `/client/home`
 
 **Funcionalidades**:
-- ✅ Ver rutinas ASIGNADAS por dueño/empleado
-- ✅ Ejecutar entrenamientos
-- ✅ Ver estadísticas y progreso (racha, volumen, PRs)
-- ✅ QR digital para check-in
-- ✅ Perfil y configuraciones
-- ✅ Analytics dashboard
+- Ver rutinas ASIGNADAS por dueño/empleado
+- Ejecutar entrenamientos
+- Ver estadísticas y progreso (racha, volumen, PRs)
+- QR digital para check-in
+- Perfil y configuraciones
+- Analytics dashboard
 
 **Colecciones Firestore**:
 - `assignments/` - Lee sus rutinas asignadas

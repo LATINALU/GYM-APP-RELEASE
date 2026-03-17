@@ -7,8 +7,8 @@ import '../auth/pages/forgot_password_screen.dart';
 import '../auth/pages/register_screen.dart';
 import '../screens/admin/admin_super_layout.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
-import '../screens/admin/admin_gyms_screen.dart';
-import '../screens/admin/admin_owners_screen.dart';
+import '../screens/admin/admin_gyms_live_screen.dart';
+import '../screens/admin/admin_owners_live_screen.dart';
 import '../screens/admin/admin_reports_screen.dart';
 import '../screens/admin/admin_billing_screen.dart';
 import '../screens/admin/admin_audit_screen.dart';
@@ -39,7 +39,6 @@ import '../screens/support/help_support_screen.dart';
 import '../../infrastructure/config/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../screens/owner/owner_member_wizard_screen.dart';
-import '../screens/owner/owner_cash_reconciliation_screen.dart';
 import '../screens/owner/pending_registrations_screen.dart';
 import '../screens/client/client_qr_pass_screen.dart';
 import '../screens/client/routine_selection_screen.dart';
@@ -50,7 +49,7 @@ import '../../domain/entities/entities.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 // GYM-APP FUNCTIONAL VIEWS (real working screens)
 // ═══════════════════════════════════════════════════════════════════════════
-// Legacy GainWave views removed - keeping only Quantum architecture
+// Legacy views removed - keeping only the active architecture
 
 /// Application Router with role-based redirection
 class AppRouter {
@@ -133,12 +132,12 @@ class AppRouter {
           GoRoute(
             path: '/admin/gyms',
             name: 'adminGyms',
-            builder: (context, state) => const AdminGymsScreen(),
+            builder: (context, state) => const AdminGymsLiveScreen(),
           ),
           GoRoute(
             path: '/admin/owners',
             name: 'adminOwners',
-            builder: (context, state) => const AdminOwnersScreen(),
+            builder: (context, state) => const AdminOwnersLiveScreen(),
           ),
           GoRoute(
             path: '/admin/reports',
@@ -417,7 +416,6 @@ class AppRouter {
         builder: (context, state) => const LeaderboardScreen(),
       ),
 
-      // Legacy GainWave routes removed - all functionality now in Quantum architecture
       // Active workout routes
       GoRoute(
         path: '/client/daily-workout',
@@ -634,7 +632,7 @@ class _SplashScreenState extends State<_SplashScreen>
             ),
             const SizedBox(height: 20),
             const Text(
-              'QUANTUM',
+              'QUANTUM GYM',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,

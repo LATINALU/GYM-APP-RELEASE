@@ -174,7 +174,7 @@ class _MinimalHomeScreenState extends State<MinimalHomeScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'FIT',
+                      'GYM',
                       style: QuantumTypography.h4.copyWith(
                         fontWeight: FontWeight.w600,
                         letterSpacing: 3,

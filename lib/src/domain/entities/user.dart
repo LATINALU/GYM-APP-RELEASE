@@ -31,6 +31,8 @@ class User extends Equatable {
   final bool isActive;
   final MembershipStatus membershipStatus;
   final DateTime? membershipExpiresAt;
+  final String? memberNumber;
+  final DateTime? memberNumberAssignedAt;
   
   // Fitness Data
   final double? weight;
@@ -52,6 +54,8 @@ class User extends Equatable {
     this.height,
     this.fitnessGoal,
     this.membershipExpiresAt,
+    this.memberNumber,
+    this.memberNumberAssignedAt,
   });
 
   /// Factory: Create new user (for registration)
@@ -66,6 +70,8 @@ class User extends Equatable {
     double? height,
     String? fitnessGoal,
     DateTime? membershipExpiresAt,
+    String? memberNumber,
+    DateTime? memberNumberAssignedAt,
   }) {
     return User._(
       id: UserId.generate(),
@@ -81,6 +87,8 @@ class User extends Equatable {
       height: height,
       fitnessGoal: fitnessGoal,
       membershipExpiresAt: membershipExpiresAt,
+      memberNumber: memberNumber,
+      memberNumberAssignedAt: memberNumberAssignedAt,
     );
   }
 
@@ -100,6 +108,8 @@ class User extends Equatable {
     double? height,
     String? fitnessGoal,
     DateTime? membershipExpiresAt,
+    String? memberNumber,
+    DateTime? memberNumberAssignedAt,
   }) {
     return User._(
       id: id,
@@ -116,6 +126,8 @@ class User extends Equatable {
       height: height,
       fitnessGoal: fitnessGoal,
       membershipExpiresAt: membershipExpiresAt,
+      memberNumber: memberNumber,
+      memberNumberAssignedAt: memberNumberAssignedAt,
     );
   }
 
@@ -146,6 +158,13 @@ class User extends Equatable {
   /// Assign user to a new gym
   User assignToGym(GymId newGymId) {
     return _copyWith(gymId: newGymId);
+  }
+
+  User assignMemberNumber(String newMemberNumber) {
+    return _copyWith(
+      memberNumber: newMemberNumber,
+      memberNumberAssignedAt: DateTime.now(),
+    );
   }
 
   /// Approve user membership
@@ -245,7 +264,9 @@ class User extends Equatable {
   String get initials => name.initials;
 
   /// Get a shorter unique code for display and manual entry
-  String get uniqueCode => id.value.toUpperCase().split('-').first;
+  String get uniqueCode => memberNumber ?? id.value.toUpperCase().split('-').first;
+
+  bool get hasMemberNumber => memberNumber != null && memberNumber!.trim().isNotEmpty;
 
   /// Days remaining for membership
   int? get daysRemaining {
@@ -289,6 +310,8 @@ class User extends Equatable {
     double? height,
     String? fitnessGoal,
     DateTime? membershipExpiresAt,
+    String? memberNumber,
+    DateTime? memberNumberAssignedAt,
   }) {
     return User._(
       id: id,
@@ -305,12 +328,28 @@ class User extends Equatable {
       height: height ?? this.height,
       fitnessGoal: fitnessGoal ?? this.fitnessGoal,
       membershipExpiresAt: membershipExpiresAt ?? this.membershipExpiresAt,
+      memberNumber: memberNumber ?? this.memberNumber,
+      memberNumberAssignedAt: memberNumberAssignedAt ?? this.memberNumberAssignedAt,
     );
   }
 
   @override
-  List<Object?> get props => [id, weight, height, fitnessGoal, membershipExpiresAt];
+  List<Object?> get props => [
+    id,
+    role,
+    gymId,
+    membershipStatus,
+    memberNumber,
+    memberNumberAssignedAt,
+    weight,
+    height,
+    fitnessGoal,
+    membershipExpiresAt,
+  ];
 
   @override
-  String toString() => 'User(${id.value}, ${email.value}, ${role.displayName}, Status: $membershipStatus)';
+  String toString() => 'User(${id.value}, ${email.value}, ${role.displayName}, memberNumber: $memberNumber, Status: $membershipStatus)';
 }
+
+
+

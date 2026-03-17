@@ -1,11 +1,11 @@
 {
-    "name": "Quantum",
-    "short_name": "Quantum",
+    "name": "QUANTUM GYM",
+    "short_name": "QUANTUM GYM",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F0F12",
     "theme_color": "#00E0FF",
-    "description": "Quantum - Fitness Intelligence",
+    "description": "QUANTUM GYM - Plataforma de Gestión de Gimnasios",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

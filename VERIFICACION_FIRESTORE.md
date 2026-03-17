@@ -312,7 +312,7 @@ Colecciones y paths oficiales para app Firebase actual:
 - [ ] Verificar que tiene routineId, clientId, assignedById y gymId
 
 ### Test 6: Cliente ve Rutina Asignada
-- [ ] Login como alex@quantum.com (cliente)
+- [ ] Login como el usuario `client` definido en `test-users.local.json`
 - [ ] Ir a /client/home
 - [ ] Verificar que AppBloc carga rutina asignada
 - [ ] Verificar que se muestra en TrainingDashboardScreen

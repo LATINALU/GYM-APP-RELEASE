@@ -65,12 +65,13 @@ class QuantumApp extends StatelessWidget {
             create:
                 (_) => AuthBloc(
                   loginUseCase: getIt<LoginUseCase>(),
+                  googleLoginUseCase: getIt<GoogleLoginUseCase>(),
                   updateProfileUseCase: getIt<UpdateProfileUseCase>(),
                 )..add(AuthCheckRequested()),
           ),
         ],
         child: MaterialApp.router(
-          title: 'Quantum',
+          title: 'QUANTUM GYM',
           debugShowCheckedModeBanner: false,
           theme: QuantumTheme.darkTheme,
           routerConfig: AppRouter.router,

@@ -25,12 +25,14 @@ class ClientQrScreen extends StatelessWidget {
       ),
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
-          String? userId;
+          String? qrPayload;
+          String? memberCode;
           if (state is Authenticated) {
-            userId = state.user.id.value;
+            qrPayload = 'QUANTUM_${state.user.id.value}';
+            memberCode = state.user.uniqueCode;
           }
 
-          if (userId == null) {
+          if (qrPayload == null) {
             return const Center(child: CircularProgressIndicator());
           }
 
@@ -52,7 +54,7 @@ class ClientQrScreen extends StatelessWidget {
                     ],
                   ),
                   child: QrImageView(
-                    data: userId,
+                    data: qrPayload,
                     version: QrVersions.auto,
                     size: 250.0,
                     eyeStyle: const QrEyeStyle(
@@ -75,6 +77,15 @@ class ClientQrScreen extends StatelessWidget {
                   'El staff lo escaneará para registrar tu visita',
                   style: TextStyle(color: Colors.white60),
                 ),
+                if (memberCode != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Código de miembro: $memberCode',
+                    style: QuantumTypography.bodyLarge.copyWith(
+                      color: QuantumColors.matrixCyan,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 60),
                 _buildSecurityTip(),
               ],

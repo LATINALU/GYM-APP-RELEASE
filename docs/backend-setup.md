@@ -1,7 +1,7 @@
 # Backend Setup - InsForge Integration
 
 ## Overview
-GainWave utiliza el backend **InsForge** para persistencia de datos y autenticación.
+QUANTUM GYM utiliza el backend **InsForge** para persistencia de datos y autenticación.
 
 ## Repository
 El backend está disponible en: https://github.com/SamamaHussain/insforge

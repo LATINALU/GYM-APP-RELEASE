@@ -1,4 +1,4 @@
-# 🗄️ DISEÑO DE BASE DE DATOS VPS - GainWave
+# 🗄️ DISEÑO DE BASE DE DATOS VPS - QUANTUM GYM
 
 ## Arquitectura: PostgreSQL en VPS + API REST (Supabase/Custom Backend)
 

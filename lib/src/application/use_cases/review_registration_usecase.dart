@@ -4,6 +4,7 @@ import '../../../core/types/typedefs.dart';
 import '../../domain/entities/pending_registration.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/ports/input/review_registration_usecase_port.dart';
+import '../../domain/ports/output/member_number_allocator_port.dart';
 import '../../domain/ports/output/pending_registration_repository_port.dart';
 import '../../domain/ports/output/user_repository_port.dart';
 import '../../domain/value_objects/value_objects.dart';
@@ -17,12 +18,15 @@ import '../../domain/value_objects/value_objects.dart';
 class ReviewRegistrationUseCase implements ReviewRegistrationUseCasePort {
   final PendingRegistrationRepositoryPort _registrationRepo;
   final UserRepositoryPort _userRepo;
+  final MemberNumberAllocatorPort _memberNumberAllocator;
 
   const ReviewRegistrationUseCase({
     required PendingRegistrationRepositoryPort registrationRepository,
     required UserRepositoryPort userRepository,
+    required MemberNumberAllocatorPort memberNumberAllocator,
   })  : _registrationRepo = registrationRepository,
-        _userRepo = userRepository;
+        _userRepo = userRepository,
+        _memberNumberAllocator = memberNumberAllocator;
 
   @override
   FutureVoidResult approve({
@@ -68,21 +72,43 @@ class ReviewRegistrationUseCase implements ReviewRegistrationUseCasePort {
           final approved = registration.approve(approvedBy: reviewedBy.value);
 
           // 5. Create the user in the gym's member collection
-          final newUser = User.create(
+          final nameParts = registration.userName.trim().split(RegExp(r'\s+'));
+          var newUser = User.restore(
+            id: UserId(registration.userId),
             email: Email(registration.userEmail),
             name: PersonName(
-              firstName: registration.userName.split(' ').first,
-              lastName: registration.userName.split(' ').length > 1
-                  ? registration.userName.split(' ').sublist(1).join(' ')
+              firstName: nameParts.isNotEmpty ? nameParts.first : registration.userName,
+              lastName: nameParts.length > 1
+                  ? nameParts.sublist(1).join(' ')
                   : '',
             ),
             role: GymRole.fromString(assignedRole.name),
             gymId: gymId,
+            createdAt: registration.createdAt,
             membershipStatus: MembershipStatus.approved,
             weight: registration.weight,
             height: registration.height,
             fitnessGoal: registration.fitnessGoal,
           );
+
+          if (newUser.isClient &&
+              newUser.membershipStatus == MembershipStatus.approved &&
+              !newUser.hasMemberNumber &&
+              _memberNumberAllocator.isEnabled) {
+            final allocationResult = await _memberNumberAllocator.allocate(
+              userId: newUser.id,
+              gymId: gymId,
+              role: assignedRole,
+              idempotencyKey: '${registration.id}:${registration.userId}:approve',
+            );
+
+            allocationResult.fold(
+              (_) {},
+              (allocation) {
+                newUser = newUser.assignMemberNumber(allocation.memberNumber);
+              },
+            );
+          }
 
           // 6. Save the new user
           final saveResult = await _userRepo.save(newUser);

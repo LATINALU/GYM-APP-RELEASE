@@ -89,3 +89,4 @@ class MemberQr extends StatelessWidget {
     );
   }
 }
+

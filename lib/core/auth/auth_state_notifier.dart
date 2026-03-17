@@ -412,7 +412,11 @@ class UserProfile {
     this.membershipExpiresAt,
   });
 
-  bool get hasValidClaims => role != null && gymId != null;
+  bool get hasValidClaims {
+    if (role == null) return false;
+    if (role!.type == GymRoleType.admin) return true;
+    return gymId != null;
+  }
 
   @override
   String toString() =>

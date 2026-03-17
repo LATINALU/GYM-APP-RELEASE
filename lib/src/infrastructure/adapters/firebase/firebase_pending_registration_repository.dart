@@ -119,13 +119,22 @@ class FirebasePendingRegistrationRepository
     try {
       final data = _toFirestore(registration);
 
+      final existingDoc = await _collection.doc(registration.id).get();
+      final previousGymId = existingDoc.data()?['targetGymId'] as String?;
+
       await _collection.doc(registration.id).update(data);
+
+      if (previousGymId != null &&
+          previousGymId.isNotEmpty &&
+          previousGymId != registration.targetGymId) {
+        await _gymCollection(previousGymId).doc(registration.id).delete();
+      }
 
       // Update gym index if assigned
       if (registration.targetGymId != null) {
         await _gymCollection(registration.targetGymId!)
             .doc(registration.id)
-            .update(data);
+            .set(data, SetOptions(merge: true));
       }
 
       return const Right(null);

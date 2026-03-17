@@ -1,4 +1,4 @@
-# 🧠 CONTEXTO TÉCNICO Y FUNCIONAL: GainWave (GYM APP)
+# 🧠 CONTEXTO TÉCNICO Y FUNCIONAL: QUANTUM GYM
 
 Este documento es la referencia definitiva para entender la estructura, navegación y lógica de negocio de la aplicación.
 

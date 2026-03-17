@@ -1,5 +1,7 @@
 export 'assign_routine_usecase.dart';
 export 'check_in_usecase.dart';
+export 'ensure_pending_registration_usecase.dart';
+export 'google_login_usecase.dart';
 export 'login_usecase.dart';
 export 'register_usecase.dart';
 export 'register_gym_and_owner_usecase.dart';

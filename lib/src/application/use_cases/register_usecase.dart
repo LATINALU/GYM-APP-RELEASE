@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/types/typedefs.dart';
+import 'ensure_pending_registration_usecase.dart';
 import '../../domain/entities/entities.dart';
 import '../../domain/ports/output/auth_repository_port.dart';
 import '../../domain/ports/output/gym_repository_port.dart';
@@ -48,12 +49,15 @@ class RegisterResult {
 class RegisterUseCase {
   final AuthRepositoryPort _authRepository;
   final GymRepositoryPort _gymRepository;
+  final EnsurePendingRegistrationUseCase _ensurePendingRegistrationUseCase;
 
   RegisterUseCase({
     required AuthRepositoryPort authRepository,
     required GymRepositoryPort gymRepository,
+    required EnsurePendingRegistrationUseCase ensurePendingRegistrationUseCase,
   })  : _authRepository = authRepository,
-        _gymRepository = gymRepository;
+        _gymRepository = gymRepository,
+        _ensurePendingRegistrationUseCase = ensurePendingRegistrationUseCase;
 
   FutureResult<RegisterResult> execute(RegisterCommand command) async {
     try {
@@ -62,8 +66,16 @@ class RegisterUseCase {
       
       if (finalGymId == null && command.gymCode != null) {
         final gymResult = await _gymRepository.findByCode(command.gymCode!);
+        final earlyFailure = gymResult.fold<Failure?>(
+          (failure) => failure,
+          (_) => null,
+        );
+        if (earlyFailure != null) {
+          return left(earlyFailure);
+        }
+
         finalGymId = gymResult.fold(
-          (failure) => null,
+          (_) => null,
           (gym) => gym.id,
         );
       }
@@ -87,12 +99,26 @@ class RegisterUseCase {
         fitnessGoal: command.fitnessGoal,
       );
 
-      return result.fold(
-        (failure) => left(failure),
-        (authResult) => right(RegisterResult(
-          user: authResult.user,
-          token: authResult.token,
-        )),
+      return await result.fold<Future<Either<Failure, RegisterResult>>>(
+        (failure) async => left(failure),
+        (authResult) async {
+          final pendingResult = await _ensurePendingRegistrationUseCase.execute(
+            EnsurePendingRegistrationCommand(
+              user: authResult.user,
+              gymCode: command.gymCode,
+            ),
+          );
+
+          return pendingResult.fold(
+            (failure) => left(failure),
+            (_) => right(
+              RegisterResult(
+                user: authResult.user,
+                token: authResult.token,
+              ),
+            ),
+          );
+        },
       );
     } catch (e) {
       return left(ServerFailure(message: 'Error inesperado: $e'));

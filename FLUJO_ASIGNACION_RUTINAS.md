@@ -119,7 +119,7 @@ await FirebaseFirestore.instance
 }
 ```
 
-**Notificación**: ✓ Rutina "Hipertrofia Avanzada" asignada a Carlos Mendoza
+**Notificación**: ✓ Rutina "Hipertrofia Avanzada" asignada a cliente
 
 ---
 
@@ -128,7 +128,7 @@ await FirebaseFirestore.instance
 **Pantalla**: `/client/home` (TrainingDashboardScreen)
 
 **Proceso automático**:
-1. Cliente inicia sesión como `carlos@quantum.com`
+1. Cliente inicia sesión con el usuario `client` definido en `test-users.local.json`
 2. AppBloc se inicializa automáticamente
 3. Se ejecuta `GetClientProfileUseCase`
 

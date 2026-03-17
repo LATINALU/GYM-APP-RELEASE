@@ -1,16 +1,21 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/types/typedefs.dart';
+import '../../../domain/entities/user.dart';
 import '../../../domain/ports/input/onboard_member_usecase_port.dart';
+import '../../../domain/ports/output/member_number_allocator_port.dart';
 import '../../../domain/ports/output/user_repository_port.dart';
 import '../../../domain/value_objects/value_objects.dart';
 
 class OnboardMemberUseCase implements OnboardMemberUseCasePort {
   final UserRepositoryPort _userRepo;
+  final MemberNumberAllocatorPort? _memberNumberAllocator;
 
   OnboardMemberUseCase({
     required UserRepositoryPort userRepository,
-  }) : _userRepo = userRepository;
+    MemberNumberAllocatorPort? memberNumberAllocator,
+  })  : _userRepo = userRepository,
+        _memberNumberAllocator = memberNumberAllocator;
 
   @override
   FutureVoidResult execute({
@@ -53,7 +58,28 @@ class OnboardMemberUseCase implements OnboardMemberUseCasePort {
               
               // We explicitly set the gymId since the user might be from 'orphan-gym'
               // This is a business decision: Onboarding sets the user's primary gym
-              final updatedUser = onboardedUser.assignToGym(gymId);
+              var updatedUser = onboardedUser.assignToGym(gymId);
+
+              if (updatedUser.isClient &&
+                  updatedUser.membershipStatus == MembershipStatus.approved &&
+                  !updatedUser.hasMemberNumber &&
+                  (_memberNumberAllocator?.isEnabled ?? false)) {
+                final allocationResult = await _memberNumberAllocator!.allocate(
+                  userId: updatedUser.id,
+                  gymId: gymId,
+                  role: updatedUser.role.type,
+                  idempotencyKey: '${gymId.value}:${updatedUser.id.value}:onboard',
+                );
+
+                allocationResult.fold(
+                  (_) {},
+                  (allocation) {
+                    updatedUser = updatedUser.assignMemberNumber(
+                      allocation.memberNumber,
+                    );
+                  },
+                );
+              }
 
               await _userRepo.save(updatedUser);
               return right(null);

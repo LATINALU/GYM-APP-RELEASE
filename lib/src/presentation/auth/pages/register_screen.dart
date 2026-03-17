@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import '../../../application/use_cases/register_usecase.dart';
+import 'package:go_router/go_router.dart';
+import '../../../application/use_cases/use_cases.dart';
 import '../../../domain/value_objects/value_objects.dart';
 import '../../theme/theme.dart';
 
@@ -100,9 +101,39 @@ class _RegisterScreenState extends State<RegisterScreen>
           setState(() => _errorMessage = failure.message);
         },
         (success) {
-          // Navigate to the app (routing will handle destination)
           if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/');
+            context.go('/');
+          }
+        },
+      );
+    } catch (e) {
+      setState(() => _errorMessage = 'Error inesperado: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleGoogleRegister() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final googleLoginUseCase = GetIt.I<GoogleLoginUseCase>();
+      final result = await googleLoginUseCase.execute(
+        GoogleLoginCommand(gymCode: _gymCodeController.text.trim()),
+      );
+
+      result.fold(
+        (failure) {
+          setState(() => _errorMessage = failure.message);
+        },
+        (_) {
+          if (mounted) {
+            context.go('/');
           }
         },
       );
@@ -334,6 +365,34 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             // Submit Button
             _buildSubmitButton(),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('o', style: TextStyle(color: Colors.white38)),
+                ),
+                Expanded(child: Divider(color: Colors.white.withValues(alpha: 0.12))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 56,
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : _handleGoogleRegister,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                icon: const Icon(Icons.login_rounded),
+                label: const Text(
+                  'Registrarme con Google',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -396,13 +455,19 @@ class _RegisterScreenState extends State<RegisterScreen>
           style: QuantumTypography.bodySmall.copyWith(color: Colors.white54),
         ),
         const SizedBox(height: 8),
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildRoleChip('client', 'Cliente', Icons.person),
-            const SizedBox(width: 8),
-            _buildRoleChip('employee', 'Entrenador', Icons.sports),
-            const SizedBox(width: 8),
-            _buildRoleChip('owner', 'Dueño', Icons.business),
+            Row(
+              children: [
+                _buildRoleChip('client', 'Cliente', Icons.person),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Los gimnasios y dueños son creados únicamente por el administrador.',
+              style: QuantumTypography.bodySmall.copyWith(color: Colors.white38),
+            ),
           ],
         ),
       ],
@@ -504,7 +569,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         ),
         TextButton(
           onPressed: () {
-            Navigator.of(context).pushReplacementNamed('/login');
+            context.go('/login');
           },
           child: const Text(
             'Inicia sesión',

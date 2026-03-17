@@ -21,6 +21,14 @@ class LoginRequested extends AuthEvent {
   const LoginRequested({required this.email, required this.password});
 }
 
+class GoogleLoginRequested extends AuthEvent {
+  final String? gymCode;
+  const GoogleLoginRequested({this.gymCode});
+
+  @override
+  List<Object?> get props => [gymCode];
+}
+
 class LogoutRequested extends AuthEvent {}
 
 class AuthCheckRequested extends AuthEvent {}
@@ -85,16 +93,20 @@ class AuthFailure extends AuthState {
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase _loginUseCase;
+  final GoogleLoginUseCase _googleLoginUseCase;
   final UpdateProfileUseCase _updateProfileUseCase;
   final AuthStateNotifier _authStateNotifier = AuthStateNotifier.instance;
 
   AuthBloc({
     required LoginUseCase loginUseCase,
+    required GoogleLoginUseCase googleLoginUseCase,
     required UpdateProfileUseCase updateProfileUseCase,
   }) : _loginUseCase = loginUseCase,
+       _googleLoginUseCase = googleLoginUseCase,
        _updateProfileUseCase = updateProfileUseCase,
        super(AuthInitial()) {
     on<LoginRequested>(_onLoginRequested);
+    on<GoogleLoginRequested>(_onGoogleLoginRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<UpdateProfileRequested>(_onUpdateProfileRequested);
@@ -110,7 +122,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // In production, we'd fetch the full User entity
       add(AuthCheckRequested());
     } else if (!_authStateNotifier.isAuthenticated) {
-      emit(Unauthenticated());
+      add(AuthCheckRequested());
     }
   }
 
@@ -122,6 +134,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     final result = await _loginUseCase.execute(
       LoginCommand(email: event.email, password: event.password),
+    );
+
+    await result.fold(
+      (failure) async => emit(AuthFailure(_mapFailureToMessage(failure))),
+      (_) async {
+        await _authStateNotifier.refreshProfile();
+        add(AuthCheckRequested());
+      },
+    );
+  }
+
+  Future<void> _onGoogleLoginRequested(
+    GoogleLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+
+    final result = await _googleLoginUseCase.execute(
+      GoogleLoginCommand(gymCode: event.gymCode),
     );
 
     await result.fold(

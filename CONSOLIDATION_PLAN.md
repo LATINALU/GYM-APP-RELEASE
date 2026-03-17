@@ -46,8 +46,8 @@
 - ❌ Volume tracking separado (integrar en dashboard)
 
 ### Datos Legacy
-- ❌ Ejercicios pre-creados de GainWave (en inglés)
-- ❌ Vistas legacy de GainWave
+- ❌ Ejercicios pre-creados legacy (en inglés)
+- ❌ Vistas legacy anteriores
 - ❌ PageControlNav legacy
 
 ## Mantener Solo

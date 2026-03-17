@@ -3,6 +3,15 @@ import '../../domain/value_objects/value_objects.dart';
 
 /// Mapper for User entity to/from Firestore
 class UserMapper {
+  static String _roleValue(dynamic role) {
+    if (role is String && role.isNotEmpty) return role;
+    if (role is Map<String, dynamic>) {
+      final type = role['type'];
+      if (type is String && type.isNotEmpty) return type;
+    }
+    return 'client';
+  }
+
   /// Convert Firestore document to User entity
   static User fromFirestore(Map<String, dynamic> data, String id) {
     return User.restore(
@@ -12,7 +21,7 @@ class UserMapper {
         firstName: data['firstName'] as String,
         lastName: (data['lastName'] as String?) ?? '',
       ),
-      role: GymRole.fromString(data['role'] as String),
+      role: GymRole.fromString(_roleValue(data['role'])),
       gymId: GymId(data['gymId'] as String),
       phone: data['phone'] != null
           ? PhoneNumber.tryParse(data['phone'] as String)
@@ -22,11 +31,18 @@ class UserMapper {
           ? DateTime.parse(data['lastLoginAt'] as String)
           : null,
       isActive: (data['isActive'] as bool?) ?? true,
+      membershipStatus: _membershipStatusFromString(
+        data['membershipStatus'] as String?,
+      ),
       weight: (data['weight'] as num?)?.toDouble(),
       height: (data['height'] as num?)?.toDouble(),
       fitnessGoal: data['fitnessGoal'] as String?,
       membershipExpiresAt: data['membershipExpiresAt'] != null
           ? DateTime.parse(data['membershipExpiresAt'] as String)
+          : null,
+      memberNumber: data['memberNumber'] as String?,
+      memberNumberAssignedAt: data['memberNumberAssignedAt'] != null
+          ? DateTime.parse(data['memberNumberAssignedAt'] as String)
           : null,
     );
   }
@@ -43,10 +59,21 @@ class UserMapper {
       'createdAt': user.createdAt.toIso8601String(),
       'lastLoginAt': user.lastLoginAt?.toIso8601String(),
       'isActive': user.isActive,
+      'membershipStatus': user.membershipStatus.name,
       'weight': user.weight,
       'height': user.height,
       'fitnessGoal': user.fitnessGoal,
       'membershipExpiresAt': user.membershipExpiresAt?.toIso8601String(),
+      'memberNumber': user.memberNumber,
+      'memberNumberAssignedAt': user.memberNumberAssignedAt?.toIso8601String(),
     };
   }
+
+  static MembershipStatus _membershipStatusFromString(String? value) {
+    return MembershipStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => MembershipStatus.approved,
+    );
+  }
 }
+

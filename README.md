@@ -1,6 +1,6 @@
-# 🏋️‍♂️ Quantum: Plataforma de Gestión de Gimnasios
+# 🏋️‍♂️ QUANTUM GYM: Plataforma de Gestión de Gimnasios
 
-Quantum es una plataforma completa de gestión de gimnasios con **Training Forge** - un sistema avanzado para crear rutinas, programas y gestionar ejercicios con biblioteca visual de imágenes.
+QUANTUM GYM es una plataforma completa de gestión de gimnasios con **Training Forge** - un sistema avanzado para crear rutinas, programas y gestionar ejercicios con biblioteca visual de imágenes.
 
 ---
 
@@ -13,7 +13,7 @@ Quantum es una plataforma completa de gestión de gimnasios con **Training Forge
 - **Integración Visual**: Las imágenes del Atlas se muestran automáticamente en las cards del Training Forge
 - **Persistencia en Memoria**: Almacenamiento compartido durante la sesión de la app
 
-### 🎨 Sistema de Diseño Quantum UX
+### 🎨 Sistema de Diseño QUANTUM GYM UX
 - **Interfaz Oscura Premium**: Optimizada para pantallas OLED
 - **Paleta Futurista**: Cosmic Black, Quantum Blue, Matrix Cyan
 - **Componentes Reutilizables**: GymButton, QuantumCards, HolographicDividers
@@ -26,7 +26,7 @@ Quantum es una plataforma completa de gestión de gimnasios con **Training Forge
 
 ---
 
-## �️ MAPA DE RUTAS PRINCIPALES
+## 🗺️ MAPA DE RUTAS PRINCIPALES
 
 ### 🏢 Owner/Admin (Gestión del Gimnasio)
 | Ruta | Función | Componente |
@@ -63,7 +63,7 @@ Quantum es una plataforma completa de gestión de gimnasios con **Training Forge
 
 ---
 
-## � Training Forge: Detalles Técnicos
+## 📚 Training Forge: Detalles Técnicos
 
 ### Atlas de Ejercicios
 - **Upload de Imágenes**: Soporte para PNG, JPG, GIF
@@ -94,7 +94,7 @@ lib/src/
 │   │   │   ├── exercise_atlas_screen.dart
 │   │   │   └── training_forge_store.dart
 │   │   └── client/
-│   ├── theme/           # Sistema Quantum UX
+│   ├── theme/           # Sistema QUANTUM GYM UX
 │   └── widgets/         # Componentes reutilizables
 └── core/               # Utilidades y configuración global
 ```
@@ -111,8 +111,8 @@ lib/src/
 ### Pasos
 1. **Clonar el repositorio**
    ```bash
-   git clone https://github.com/LATINALU/Quantum.git
-   cd Quantum
+   git clone https://github.com/LATINALU/GYM-APP-RELEASE.git
+   cd GYM-APP-RELEASE
    ```
 
 2. **Instalar dependencias**
@@ -141,7 +141,7 @@ lib/src/
 
 ---
 
-## � PLATAFORMAS SOPORTADAS
+## 📱 PLATAFORMAS SOPORTADAS
 
 - ✅ **Web** (Chrome, Firefox, Safari)
 - ✅ **Android** (API 21+)
@@ -162,7 +162,7 @@ lib/src/
 
 ## 📄 LICENCIA
 
-© 2026 Quantum Team. Todos los derechos reservados.
+© 2026 QUANTUM GYM. Todos los derechos reservados.
 
 ---
 

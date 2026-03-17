@@ -119,6 +119,33 @@ class InsForgeAuthRepository implements AuthRepositoryPort {
   }
 
   @override
+  FutureResult<AuthResult> signInWithGoogle({
+    GymCode? gymCode,
+  }) async {
+    return const Left(
+      AuthFailure(
+        message: 'Google Sign-In no está disponible en el backend InsForge.',
+      ),
+    );
+  }
+
+  @override
+  FutureResult<AuthResult> provisionUser({
+    required Email email,
+    required String password,
+    required PersonName name,
+    required GymRole role,
+    required GymId gymId,
+    PhoneNumber? phone,
+  }) async {
+    return const Left(
+      AuthFailure(
+        message: 'El aprovisionamiento admin no está disponible en el backend InsForge.',
+      ),
+    );
+  }
+
+  @override
   FutureVoidResult logout() async {
     try {
       await _client.authLogout();

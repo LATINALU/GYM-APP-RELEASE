@@ -41,6 +41,19 @@ abstract class AuthRepositoryPort {
     String? fitnessGoal,
   });
 
+  FutureResult<AuthResult> signInWithGoogle({
+    GymCode? gymCode,
+  });
+
+  FutureResult<AuthResult> provisionUser({
+    required Email email,
+    required String password,
+    required PersonName name,
+    required GymRole role,
+    required GymId gymId,
+    PhoneNumber? phone,
+  });
+
   /// Logout current user
   FutureVoidResult logout();
 

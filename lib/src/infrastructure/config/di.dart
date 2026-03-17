@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 
 import '../../domain/ports/ports.dart';
 import '../../domain/ports/input/manage_routine_usecase_port.dart';
@@ -11,6 +12,7 @@ import '../../application/services/volume_tracking_service.dart';
 import '../../application/services/nutrition_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/local/local_exercise_repository.dart';
+import '../services/rust_member_number_allocator.dart';
 import '../../presentation/bloc/app_bloc.dart';
 import '../../presentation/screens/settings/bloc/settings_bloc.dart';
 import '../../presentation/routines/bloc/routine_bloc.dart';
@@ -34,6 +36,10 @@ Future<void> configureDependencies() async {
   
   if (!getIt.isRegistered<FirebaseMessaging>()) {
     getIt.registerLazySingleton<FirebaseMessaging>(() => FirebaseMessaging.instance);
+  }
+
+  if (!getIt.isRegistered<http.Client>()) {
+    getIt.registerLazySingleton<http.Client>(() => http.Client());
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -85,6 +91,18 @@ Future<void> configureDependencies() async {
     );
   }
 
+  if (!getIt.isRegistered<EmailServicePort>()) {
+    getIt.registerLazySingleton<EmailServicePort>(
+      () => FirebaseEmailService(getIt<FirebaseFirestore>()),
+    );
+  }
+
+  if (!getIt.isRegistered<NotificationServicePort>()) {
+    getIt.registerLazySingleton<NotificationServicePort>(
+      () => FirebaseNotificationService(getIt<FirebaseFirestore>()),
+    );
+  }
+
   // Exercise Repository (Local)
   if (!getIt.isRegistered<ExerciseRepositoryPort>()) {
     getIt.registerLazySingleton<ExerciseRepositoryPort>(
@@ -96,11 +114,21 @@ Future<void> configureDependencies() async {
   // USE CASES (Input Ports)
   // ═══════════════════════════════════════════════════════════════════════════
   
+  if (!getIt.isRegistered<EnsurePendingRegistrationUseCase>()) {
+    getIt.registerFactory<EnsurePendingRegistrationUseCase>(
+      () => EnsurePendingRegistrationUseCase(
+        pendingRegistrationRepository: getIt<PendingRegistrationRepositoryPort>(),
+        gymRepository: getIt<GymRepositoryPort>(),
+      ),
+    );
+  }
+
   if (!getIt.isRegistered<RegisterUseCase>()) {
     getIt.registerFactory<RegisterUseCase>(
       () => RegisterUseCase(
         authRepository: getIt<AuthRepositoryPort>(),
         gymRepository: getIt<GymRepositoryPort>(),
+        ensurePendingRegistrationUseCase: getIt<EnsurePendingRegistrationUseCase>(),
       ),
     );
   }
@@ -108,6 +136,15 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<LoginUseCase>()) {
     getIt.registerFactory<LoginUseCase>(
       () => LoginUseCase(authRepository: getIt<AuthRepositoryPort>()),
+    );
+  }
+
+  if (!getIt.isRegistered<GoogleLoginUseCase>()) {
+    getIt.registerFactory<GoogleLoginUseCase>(
+      () => GoogleLoginUseCase(
+        authRepository: getIt<AuthRepositoryPort>(),
+        ensurePendingRegistrationUseCase: getIt<EnsurePendingRegistrationUseCase>(),
+      ),
     );
   }
   
@@ -271,11 +308,21 @@ Future<void> configureDependencies() async {
     );
   }
 
+  if (!getIt.isRegistered<MemberNumberAllocatorPort>()) {
+    getIt.registerLazySingleton<MemberNumberAllocatorPort>(
+      () => RustMemberNumberAllocator(
+        httpClient: getIt<http.Client>(),
+        firebaseAuth: getIt<FirebaseAuth>(),
+      ),
+    );
+  }
+
   if (!getIt.isRegistered<ReviewRegistrationUseCase>()) {
     getIt.registerFactory<ReviewRegistrationUseCase>(
       () => ReviewRegistrationUseCase(
         registrationRepository: getIt<PendingRegistrationRepositoryPort>(),
         userRepository: getIt<UserRepositoryPort>(),
+        memberNumberAllocator: getIt<MemberNumberAllocatorPort>(),
       ),
     );
   }
