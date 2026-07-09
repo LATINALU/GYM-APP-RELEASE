@@ -413,13 +413,17 @@ service cloud.firestore {
         )
       );
 
-      allow create: if isAuth() && (
-        isAdmin() ||
+      // El monto debe ser numérico y no negativo.
+      allow create: if isAuth() &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount >= 0 &&
         (
-          request.resource.data.gymId is string &&
-          isStaffOfGym(request.resource.data.gymId)
-        )
-      );
+          isAdmin() ||
+          (
+            request.resource.data.gymId is string &&
+            isStaffOfGym(request.resource.data.gymId)
+          )
+        );
 
       allow update: if isAuth() && (
         isAdmin() ||
@@ -564,13 +568,17 @@ service cloud.firestore {
         )
       );
 
-      allow create: if isAuth() && (
-        isAdmin() ||
+      // El total debe ser numérico y no negativo.
+      allow create: if isAuth() &&
+        request.resource.data.total is number &&
+        request.resource.data.total >= 0 &&
         (
-          request.resource.data.gymId is string &&
-          isStaffOfGym(request.resource.data.gymId)
-        )
-      );
+          isAdmin() ||
+          (
+            request.resource.data.gymId is string &&
+            isStaffOfGym(request.resource.data.gymId)
+          )
+        );
 
       allow update: if isAuth() && (
         isAdmin() ||
@@ -874,9 +882,31 @@ service cloud.firestore {
         (
           resource.data.userId is string &&
           resource.data.userId == uid()
+        ) ||
+        (
+          resource.data.recipientId is string &&
+          resource.data.recipientId == uid()
         )
       );
-      allow create: if isAuth();
+      // Solo admin/staff pueden notificar a terceros; un cliente solo a sí
+      // mismo. Se validan tipos y tamaños para evitar spam de documentos.
+      allow create: if isAuth() &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() > 0 &&
+        request.resource.data.title.size() < 200 &&
+        (
+          isAdmin() ||
+          hasRole('owner') ||
+          hasRole('employee') ||
+          (
+            request.resource.data.recipientId is string &&
+            request.resource.data.recipientId == uid()
+          ) ||
+          (
+            request.resource.data.userId is string &&
+            request.resource.data.userId == uid()
+          )
+        );
       allow update: if isAuth() && (
         isAdmin() ||
         (
@@ -1044,6 +1074,52 @@ service cloud.firestore {
       allow delete: if isAdmin() || (
         resource.data.gymId is string &&
         isOwnerOfGym(resource.data.gymId)
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GAMIFICATION (XP, rachas, logros — doc por userId)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /gamification/{userId} {
+      // Lectura abierta a autenticados: el leaderboard es cross-user y los
+      // datos no son sensibles (XP, racha, logros).
+      allow read: if isAuth();
+      allow create, update: if isAuth() && (isAdmin() || uid() == userId);
+      allow delete: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FOOD DATABASE (catálogo global de alimentos para nutrición)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /food_database/{foodId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // VOLUME RECORDS (volumen semanal de entrenamiento por usuario)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /volume_records/{recordId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
       );
     }
 

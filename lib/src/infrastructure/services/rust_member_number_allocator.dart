@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/errors/failures.dart';
@@ -11,6 +10,12 @@ import '../../domain/ports/output/member_number_allocator_port.dart';
 import '../../domain/value_objects/value_objects.dart';
 
 class RustMemberNumberAllocator implements MemberNumberAllocatorPort {
+  /// URL del servicio, inyectada en build con
+  /// `--dart-define=MEMBER_NUMBER_SERVICE_URL=...`.
+  /// Vacía por defecto: el servicio queda deshabilitado (isEnabled == false).
+  static const String _envBaseUrl =
+      String.fromEnvironment('MEMBER_NUMBER_SERVICE_URL');
+
   final http.Client _httpClient;
   final fb.FirebaseAuth _firebaseAuth;
   final String _baseUrl;
@@ -21,7 +26,7 @@ class RustMemberNumberAllocator implements MemberNumberAllocatorPort {
     String? baseUrl,
   })  : _httpClient = httpClient,
         _firebaseAuth = firebaseAuth,
-        _baseUrl = (baseUrl ?? dotenv.env['MEMBER_NUMBER_SERVICE_URL'] ?? '').trim();
+        _baseUrl = (baseUrl ?? _envBaseUrl).trim();
 
   @override
   bool get isEnabled => _baseUrl.isNotEmpty;
