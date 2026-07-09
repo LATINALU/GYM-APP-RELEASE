@@ -1048,6 +1048,25 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // PLATFORM BILLING (planes y facturas de la plataforma hacia gyms)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /platform_plans/{planId} {
+      // Los owners necesitan ver los planes disponibles; solo admin los edita.
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /platform_invoices/{invoiceId} {
+      // El owner de un gym puede ver sus propias facturas; admin ve todo.
+      allow read: if isAdmin() || (
+        resource.data.gymId is string &&
+        isOwnerOfGym(resource.data.gymId)
+      );
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // CATCH-ALL: Deny everything else by default
     // ═══════════════════════════════════════════════════════════════════
 

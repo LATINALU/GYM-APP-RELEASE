@@ -352,3 +352,44 @@ CREATE POLICY gym_isolation ON users
 
 *Documento generado: 2026-02-11*
 *Última actualización: v1.0*
+
+---
+
+## Facturación de Plataforma (v1.1 — Julio 2026)
+
+Esquema para la facturación de la plataforma hacia los gimnasios (pantallas de super admin). Los pagos siguen registrándose manualmente (sin pasarela).
+
+### `platform_plans/{planId}`
+Planes que la plataforma ofrece a los gimnasios. Sembrados automáticamente por `AdminMetricsService.ensureDefaultPlans()` la primera vez que el admin abre Facturación.
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| name | string | Trial, Básico, Premium, Enterprise |
+| price | number | Precio mensual |
+| currency | string | Default MXN |
+| maxMembers | number | 0 = ilimitado |
+| maxStaff | number | 0 = ilimitado |
+| features | array<string> | Lista visible en UI |
+| sortOrder | number | Orden en la grilla |
+| isActive | bool | Planes retirados quedan en false |
+| colorValue | number | Color ARGB para la UI |
+
+### Campos nuevos en `gyms/{gymId}`
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| platformPlanId | string | Ref. a `platform_plans` |
+| platformPlanStatus | string | `trial` \| `active` \| `overdue` |
+| planRenewsAt | timestamp | Próxima renovación |
+
+El MRR de plataforma = suma de `price` de los planes de gyms con `platformPlanStatus == 'active'`.
+
+### `platform_invoices/{invoiceId}`
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| gymId / gymName | string | Denormalizado para la tabla |
+| planId / planName | string | Denormalizado |
+| amount | number | |
+| status | string | `paid` \| `overdue` \| `trial` |
+| date | timestamp | |
+
+Reglas: `platform_plans` legible por cualquier usuario autenticado, escribible solo por admin. `platform_invoices` legible por admin o el owner del gym facturado, escribible solo por admin.

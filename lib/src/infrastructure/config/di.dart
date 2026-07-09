@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../domain/ports/ports.dart';
 import '../../domain/ports/input/manage_routine_usecase_port.dart';
 import '../../application/use_cases/use_cases.dart';
+import '../../application/services/admin_metrics_service.dart';
 import '../../application/services/recovery_service.dart';
 import '../../application/services/volume_tracking_service.dart';
 import '../../application/services/nutrition_service.dart';
@@ -255,6 +256,12 @@ Future<void> configureDependencies() async {
   // ═══════════════════════════════════════════════════════════════════════════
   // APPLICATION SERVICES
   // ═══════════════════════════════════════════════════════════════════════════
+
+  if (!getIt.isRegistered<AdminMetricsService>()) {
+    getIt.registerFactory<AdminMetricsService>(
+      () => AdminMetricsService(firestore: getIt<FirebaseFirestore>()),
+    );
+  }
 
   if (!getIt.isRegistered<RecoveryService>()) {
     getIt.registerFactory<RecoveryService>(
