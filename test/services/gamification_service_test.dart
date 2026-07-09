@@ -126,6 +126,57 @@ void main() {
     });
   });
 
+  group('checkAchievements', () {
+    test('desbloquea logros cuyas condiciones se cumplen y otorga su XP',
+        () async {
+      await firestore.collection('gamification').doc('u1').set({
+        'totalXp': 100,
+        'totalWorkouts': 5,
+        'currentStreak': 3,
+        'longestStreak': 3,
+      });
+
+      final unlocked = await service.checkAchievements('u1');
+
+      final ids = unlocked.map((a) => a.id).toSet();
+      expect(ids, containsAll(['primer_entreno', 'constante_5', 'racha_3']));
+      expect(ids, isNot(contains('dedicado_25')));
+
+      // El XP de los logros (50+100+75) se suma al total.
+      final doc = await firestore.collection('gamification').doc('u1').get();
+      expect(doc.data()?['totalXp'], 100 + 50 + 100 + 75);
+      expect(doc.data()?['totalAchievements'], 3);
+    });
+
+    test('no vuelve a otorgar logros ya desbloqueados', () async {
+      await firestore.collection('gamification').doc('u1').set({
+        'totalWorkouts': 1,
+      });
+
+      final first = await service.checkAchievements('u1');
+      final second = await service.checkAchievements('u1');
+
+      expect(first.map((a) => a.id), contains('primer_entreno'));
+      expect(second.where((a) => a.id == 'primer_entreno'), isEmpty);
+    });
+  });
+
+  group('recordWorkoutCompletion', () {
+    test(
+        'usuario nuevo: crea perfil, inicia racha, suma XP y desbloquea primer logro',
+        () async {
+      final unlocked = await service.recordWorkoutCompletion('nuevo');
+
+      expect(unlocked.map((a) => a.id), contains('primer_entreno'));
+
+      final profile = await service.getProfile('nuevo');
+      expect(profile.totalWorkouts, 1);
+      expect(profile.currentStreak, 1);
+      // 50 XP base + 50 XP del logro "Primer Paso"
+      expect(profile.totalXp, 100);
+    });
+  });
+
   group('getLeaderboard', () {
     test('ordena por totalXp descendente y limita resultados', () async {
       await firestore.collection('gamification').doc('a').set({'totalXp': 10});

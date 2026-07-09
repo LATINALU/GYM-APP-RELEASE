@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../domain/data/achievement_catalog.dart';
 import '../../domain/entities/achievement.dart';
 
 /// Gamification Application Service
@@ -79,10 +80,63 @@ class GamificationService {
     }
   }
 
-  /// Check and unlock achievements
+  /// Evalúa el catálogo contra las métricas del perfil y desbloquea los
+  /// logros nuevos (persiste + otorga su XP). Devuelve los recién ganados.
   Future<List<Achievement>> checkAchievements(String userId) async {
-    // In production, this would check conditions against user data
-    return [];
+    try {
+      final profile = await getProfile(userId);
+      final stats = AchievementStats(
+        totalWorkouts: profile.totalWorkouts,
+        currentStreak: profile.currentStreak,
+        longestStreak: profile.longestStreak,
+        totalXp: profile.totalXp,
+      );
+
+      final alreadyUnlocked =
+          profile.achievements
+              .where((a) => a.isUnlocked)
+              .map((a) => a.id)
+              .toSet();
+
+      final newlyUnlocked = <Achievement>[];
+      for (final definition in AchievementCatalog.all) {
+        if (alreadyUnlocked.contains(definition.id)) continue;
+        if (definition.isSatisfiedBy(stats)) {
+          newlyUnlocked.add(definition.toAchievement(stats));
+        }
+      }
+
+      if (newlyUnlocked.isEmpty) return const [];
+
+      final xpFromAchievements =
+          newlyUnlocked.fold<int>(0, (total, a) => total + a.xpReward);
+
+      await _firestore.collection('gamification').doc(userId).set({
+        'achievements': FieldValue.arrayUnion(
+          newlyUnlocked.map((a) => a.toMap()).toList(),
+        ),
+        'totalAchievements': FieldValue.increment(newlyUnlocked.length),
+        'totalXp': FieldValue.increment(xpFromAchievements),
+      }, SetOptions(merge: true));
+
+      return newlyUnlocked;
+    } catch (e) {
+      return const [];
+    }
+  }
+
+  /// Registra un entrenamiento completado: XP base, racha, contador de
+  /// workouts y evaluación de logros. Devuelve los logros recién ganados.
+  Future<List<Achievement>> recordWorkoutCompletion(
+    String userId, {
+    int baseXp = 50,
+  }) async {
+    await updateStreak(userId);
+    await _firestore.collection('gamification').doc(userId).set({
+      'totalWorkouts': FieldValue.increment(1),
+    }, SetOptions(merge: true));
+    await awardXp(userId, baseXp, 'Entrenamiento completado');
+    return checkAchievements(userId);
   }
 
   /// Update streak

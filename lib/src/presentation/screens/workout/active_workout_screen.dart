@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
+import '../../../domain/entities/achievement.dart';
 import '../../../domain/entities/workout_session.dart';
 import '../../../domain/entities/workout_plan.dart';
 import '../../../domain/entities/gym_exercise.dart';
 import '../../bloc/app_bloc.dart';
+import '../../../application/services/gamification_service.dart';
+import '../../../infrastructure/config/di.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 
 class ActiveWorkoutScreen extends StatefulWidget {
@@ -250,20 +253,32 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with TickerPr
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // Gamificación: XP, racha, contador y logros nuevos
+      List<Achievement> newAchievements = const [];
+      try {
+        newAchievements =
+            await getIt<GamificationService>().recordWorkoutCompletion(userId);
+      } catch (_) {
+        // La gamificación nunca debe impedir guardar el entrenamiento.
+      }
+
       // Actualizar AppBloc
       final completedSession = _session.copyWith(
         status: WorkoutStatus.completed,
         endTime: DateTime.now(),
       );
-      
+
       if (mounted) {
         context.read<AppBloc>().add(WorkoutCompleted(completedSession));
-        
+
         Navigator.of(context).pop(completedSession);
-        
+
+        final achievementSuffix = newAchievements.isEmpty
+            ? ''
+            : '\n🏆 ¡Logro desbloqueado: ${newAchievements.map((a) => a.title).join(', ')}!';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('✓ Entrenamiento guardado exitosamente'),
+            content: Text('✓ Entrenamiento guardado exitosamente$achievementSuffix'),
             backgroundColor: QuantumColors.matrixCyan,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

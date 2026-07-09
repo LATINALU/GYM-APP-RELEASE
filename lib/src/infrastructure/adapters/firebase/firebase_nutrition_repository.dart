@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:gym_app/src/domain/data/food_catalog.dart';
 import 'package:gym_app/src/domain/entities/nutrition_plan.dart';
 import 'package:gym_app/src/domain/ports/output/nutrition_repository_port.dart';
 import '../../mappers/nutrition_mapper.dart';
@@ -60,11 +61,34 @@ class FirebaseNutritionRepository implements NutritionRepositoryPort {
 
   @override
   Future<List<FoodItem>> searchFoods(String query) async {
-    final snap = await _firestore.collection('food_database')
-        .where('name', isGreaterThanOrEqualTo: query)
-        .where('name', isLessThanOrEqualTo: '$query\uf8ff')
-        .limit(10)
-        .get();
-    return snap.docs.map((d) => FoodItem.fromMap(d.data())).toList();
+    // Cat\u00e1logo local: siempre disponible (offline, sin costo de lecturas).
+    final localResults = FoodCatalog.search(query);
+
+    // Alimentos personalizados en Firestore; si falla (offline, permisos)
+    // se responde solo con el cat\u00e1logo local.
+    List<FoodItem> remoteResults = const [];
+    try {
+      final snap = await _firestore
+          .collection('food_database')
+          .where('name', isGreaterThanOrEqualTo: query)
+          .where('name', isLessThanOrEqualTo: '$query\uf8ff')
+          .limit(10)
+          .get();
+      remoteResults =
+          snap.docs.map((d) => FoodItem.fromMap(d.data())).toList();
+    } catch (_) {
+      // Sin conexi\u00f3n o sin datos remotos: el cat\u00e1logo local basta.
+    }
+
+    // Los alimentos del gym tienen prioridad sobre el cat\u00e1logo ante nombres
+    // duplicados.
+    final seenNames = <String>{};
+    final merged = <FoodItem>[];
+    for (final item in [...remoteResults, ...localResults]) {
+      if (seenNames.add(item.name.toLowerCase())) {
+        merged.add(item);
+      }
+    }
+    return merged;
   }
 }

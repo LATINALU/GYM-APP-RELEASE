@@ -1078,6 +1078,31 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // WORKOUT SESSIONS (entrenamientos completados por usuario)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /workout_sessions/{sessionId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // GAMIFICATION (XP, rachas, logros — doc por userId)
     // ═══════════════════════════════════════════════════════════════════
 
