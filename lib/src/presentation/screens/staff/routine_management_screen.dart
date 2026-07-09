@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/theme.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
+import '../../../domain/ports/output/user_repository_port.dart';
+import '../../../domain/ports/output/assignment_repository_port.dart';
+import '../../../domain/ports/output/routine_repository_port.dart';
+import '../../../domain/entities/entities.dart';
+import '../../../domain/value_objects/value_objects.dart';
+import '../../../infrastructure/adapters/firebase/firebase_exercise_repository.dart';
+import '../../../infrastructure/config/di.dart';
 
 class RoutineManagementScreen extends StatefulWidget {
   const RoutineManagementScreen({super.key});
@@ -181,32 +187,24 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
     });
 
     try {
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('exercises')
-              .where('isActive', isEqualTo: true)
-              .get();
+      final exerciseRepo = getIt<FirebaseExerciseRepository>();
+      final result = await exerciseRepo.getAll();
 
-      final exercises =
-          snapshot.docs.map((doc) {
-            final data = doc.data();
-            final heatmap = Map<String, dynamic>.from(data['heatmap'] as Map? ?? {});
-            final primaryMuscle =
-                heatmap.entries.isNotEmpty
-                    ? heatmap.entries.reduce(
-                      (current, next) =>
-                          (next.value as num).toDouble() > (current.value as num).toDouble()
-                              ? next
-                              : current,
-                    ).key
-                    : 'General';
-
-            return <String, String>{
-              'id': doc.id,
-              'name': data['name']?.toString() ?? 'Ejercicio',
-              'category': primaryMuscle,
-            };
-          }).toList();
+      final exercises = result.fold(
+        (failure) => throw Exception(failure.message),
+        (exs) => exs.map((exercise) {
+          final heatmap = exercise.heatmap.intensities;
+          final primaryMuscle = heatmap.entries.isNotEmpty
+              ? heatmap.entries.reduce((curr, next) =>
+                  next.value > curr.value ? next : curr).key
+              : 'General';
+          return <String, String>{
+            'id': exercise.id.value,
+            'name': exercise.name,
+            'category': primaryMuscle,
+          };
+        }).toList(),
+      );
 
       if (!mounted) return;
 
@@ -246,16 +244,20 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
   }
 
   Future<void> _showClientSelectionDialog(String gymId) async {
-    // Obtener clientes del gimnasio
-    final clientsSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('gymId', isEqualTo: gymId)
-        .where('role.type', isEqualTo: 'client')
-        .get();
+    final userRepo = getIt<UserRepositoryPort>();
+    final clientsResult = await userRepo.findByRole(
+      gymId: GymId(gymId),
+      role: const GymRole.client(),
+    );
+
+    final clients = clientsResult.fold(
+      (failure) => <User>[],
+      (users) => users,
+    );
 
     if (!mounted) return;
 
-    if (clientsSnapshot.docs.isEmpty) {
+    if (clients.isEmpty) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -273,13 +275,10 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
       return;
     }
 
-    final clients = clientsSnapshot.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'name': data['displayName'] ?? 'Sin nombre',
-        'email': data['email'] ?? '',
-      };
+    final clientList = clients.map((user) => {
+      'id': user.id.value,
+      'name': user.name.fullName,
+      'email': user.email.value,
     }).toList();
 
     await showDialog(
@@ -309,9 +308,9 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: clients.length,
+                  itemCount: clientList.length,
                   itemBuilder: (_, i) {
-                    final client = clients[i];
+                    final client = clientList[i];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
@@ -350,16 +349,17 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
   }
 
   Future<void> _showRoutineSelectionDialog(String gymId) async {
-    // Obtener rutinas del gimnasio
-    final routinesSnapshot = await FirebaseFirestore.instance
-        .collection('routines')
-        .where('gymId', isEqualTo: gymId)
-        .where('isActive', isEqualTo: true)
-        .get();
+    final routineRepo = getIt<RoutineRepositoryPort>();
+    final routinesResult = await routineRepo.findAllActive();
+
+    final routines = routinesResult.fold(
+      (failure) => <WorkoutRoutine>[],
+      (routines) => routines,
+    );
 
     if (!mounted) return;
 
-    if (routinesSnapshot.docs.isEmpty) {
+    if (routines.isEmpty) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -377,15 +377,12 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
       return;
     }
 
-    final routines = routinesSnapshot.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'name': data['name'] ?? 'Sin nombre',
-        'difficulty': data['difficulty'] ?? 'intermediate',
-        'focus': data['focus'] ?? 'general',
-        'exerciseCount': (data['exercises'] as List?)?.length ?? 0,
-      };
+    final routineList = routines.map((r) => {
+      'id': r.id.value,
+      'name': r.name,
+      'difficulty': r.difficulty.name,
+      'focus': 'general',
+      'exerciseCount': r.exercises.length,
     }).toList();
 
     await showDialog(
@@ -422,9 +419,9 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: routines.length,
+                  itemCount: routineList.length,
                   itemBuilder: (_, i) {
-                    final routine = routines[i];
+                    final routine = routineList[i];
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
@@ -563,17 +560,24 @@ class _RoutineManagementScreenState extends State<RoutineManagementScreen> {
         throw Exception('La fecha de fin no es válida');
       }
 
-      await FirebaseFirestore.instance.collection('assignments').add({
-        'routineId': routine['id'],
-        'clientId': _selectedClientId,
-        'assignedById': assignerId,
-        'assignedAt': DateTime.now().toIso8601String(),
-        'startDate': parsedStartDate.toIso8601String(),
-        'endDate': parsedEndDate?.toIso8601String(),
-        'notes': notes.isNotEmpty ? notes : null,
-        'status': 'active',
-        'gymId': gymId,
-      });
+      final assignment = RoutineAssignment.restore(
+        id: AssignmentId.generate(),
+        routineId: RoutineId(routine['id']),
+        clientId: UserId(_selectedClientId!),
+        assignedById: UserId(assignerId),
+        assignedAt: DateTime.now(),
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        status: AssignmentStatus.active,
+        notes: notes.isNotEmpty ? notes : null,
+      );
+
+      final assignmentRepo = getIt<AssignmentRepositoryPort>();
+      final saveResult = await assignmentRepo.save(assignment);
+      saveResult.fold(
+        (failure) => throw Exception(failure.message),
+        (_) => null,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

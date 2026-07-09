@@ -45,7 +45,7 @@ class HelpSupportScreen extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 12),
-                _SupportCard(
+                const _SupportCard(
                   icon: Icons.schedule_rounded,
                   title: 'Horario de soporte',
                   description: 'Lunes a viernes de 09:00 a 18:00 (GMT-6)',

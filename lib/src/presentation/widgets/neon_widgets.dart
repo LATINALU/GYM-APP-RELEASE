@@ -254,7 +254,7 @@ class GridBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(opacity)
+      ..color = Colors.white.withValues(alpha: opacity)
       ..strokeWidth = 1.0;
 
     for (double i = 0; i < size.width; i += spacing) {
@@ -288,7 +288,7 @@ class GlowingMuscleSpot extends StatelessWidget {
       width: size,
       height: isElongated ? size * 2 : size,
       decoration: BoxDecoration(
-        color: QuantumColors.quantumBlue.withOpacity(intensity),
+        color: QuantumColors.quantumBlue.withValues(alpha: intensity),
         borderRadius: BorderRadius.circular(50),
         boxShadow: [
           BoxShadow(

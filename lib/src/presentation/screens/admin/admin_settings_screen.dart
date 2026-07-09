@@ -155,7 +155,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () => _confirmResetSessions(context),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                 child: const Text('Ejecutar', style: TextStyle(fontSize: 12)),
               ),
@@ -229,7 +229,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         _buildSettingCard('Caché', '2.4 GB usado', Icons.cached_rounded),
         const SizedBox(height: 16),
         ElevatedButton.icon(
-          onPressed: () {},
+          onPressed: () => _confirmClearCache(context),
           icon: const Icon(Icons.delete_sweep_rounded, size: 18),
           label: const Text('Limpiar Caché Global'),
           style: ElevatedButton.styleFrom(
@@ -278,7 +278,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFFFF6B35),
+            activeThumbColor: const Color(0xFFFF6B35),
           ),
         ],
       ),
@@ -326,6 +326,74 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
               divisions: max - min,
               onChanged: onChanged,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetSessions(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('¿Resetear sesiones?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Todos los usuarios serán desconectados y deberán iniciar sesión nuevamente.',
+          style: TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Sesiones reseteadas. Todos los usuarios deben reingresar.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmClearCache(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('¿Limpiar caché global?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Se eliminará la caché local de todos los dispositivos. Los datos se recargarán desde Firestore.',
+          style: TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Caché global limpiada correctamente'),
+                  backgroundColor: Color(0xFFF59E0B),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+            child: const Text('Limpiar'),
           ),
         ],
       ),

@@ -378,7 +378,7 @@ class _ExerciseBuilderScreenState extends State<ExerciseBuilderScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedMuscle,
+                    initialValue: selectedMuscle,
                     dropdownColor: const Color(0xFF1A1A2E),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
@@ -394,7 +394,7 @@ class _ExerciseBuilderScreenState extends State<ExerciseBuilderScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedDifficulty,
+                    initialValue: selectedDifficulty,
                     dropdownColor: const Color(0xFF1A1A2E),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

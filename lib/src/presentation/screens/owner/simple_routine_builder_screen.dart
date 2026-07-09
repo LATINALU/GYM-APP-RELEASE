@@ -356,7 +356,7 @@ class _SimpleRoutineBuilderScreenState extends State<SimpleRoutineBuilderScreen>
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedDifficulty,
+                    initialValue: selectedDifficulty,
                     dropdownColor: const Color(0xFF1A1A2E),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

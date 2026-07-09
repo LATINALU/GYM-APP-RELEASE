@@ -406,7 +406,7 @@ class _AdminExerciseLibraryScreenState extends State<AdminExerciseLibraryScreen>
                       SizedBox(
                         width: 36,
                         child: IconButton(
-                          onPressed: () {},
+                          onPressed: () => _confirmDeleteExercise(context, exercise),
                           icon: const Icon(Icons.delete_outline_rounded, size: 16),
                           color: Colors.redAccent.withValues(alpha: 0.5),
                           tooltip: 'Eliminar',
@@ -807,5 +807,57 @@ class _AdminExerciseLibraryScreenState extends State<AdminExerciseLibraryScreen>
         ),
       );
     }
+  }
+
+  void _confirmDeleteExercise(BuildContext context, Exercise exercise) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿Eliminar "${exercise.name}"?', style: const TextStyle(color: Colors.white)),
+        content: const Text(
+          'El ejercicio se marcará como inactivo. No se eliminará permanentemente.',
+          style: TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await FirebaseFirestore.instance
+                    .collection('exercises')
+                    .doc(exercise.id.value)
+                    .update({'isActive': false});
+                if (mounted) {
+                  _loadExercises();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('${exercise.name} eliminado'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
   }
 }

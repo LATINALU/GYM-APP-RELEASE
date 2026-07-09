@@ -68,11 +68,12 @@ class _WorkoutAnalyticsScreenState extends State<WorkoutAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Scaffold(
         backgroundColor: Color(0xFF0A0A0F),
         body: Center(child: CircularProgressIndicator()),
       );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0F),
       body: CustomScrollView(

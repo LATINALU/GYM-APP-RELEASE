@@ -14,6 +14,7 @@ export 'owner/owner_dashboard_screen.dart';
 export 'staff/staff_home_screen.dart';
 export 'staff/staff_qr_scanner_screen.dart';
 export 'staff/routine_management_screen.dart';
+export 'staff/staff_main_layout.dart';
 
 // Client
 export 'client/client_home_screen.dart';
@@ -26,9 +27,6 @@ export '../auth/pages/client_qr_screen.dart';
 // Workout & Training
 export 'workout/active_workout_screen.dart';
 
-// Progress
-export 'progress/progress_screen.dart';
-
 // Calendar
 export 'calendar/workout_calendar_screen.dart';
 
@@ -37,10 +35,6 @@ export 'exercises/exercise_library_screen.dart';
 
 // === GYM BUSINESS SCREENS ===
 
-// Member Dashboard
-export 'dashboard/member_dashboard_screen.dart';
-export 'dashboard/professional_member_dashboard.dart';
-
 // Digital Membership Card
 export 'member/membership_card_screen.dart';
 
@@ -48,15 +42,8 @@ export 'member/membership_card_screen.dart';
 export 'classes/class_schedule_screen.dart';
 export 'classes/gym_classes_screen.dart';
 
-// Loyalty & Rewards
-export 'loyalty/loyalty_rewards_screen.dart';
-
-// Occupancy & Capacity
-export 'occupancy/gym_occupancy_screen.dart';
-
 // Membership Management
 export 'membership/membership_plans_screen.dart';
-export 'membership/membership_status_screen.dart';
 
 // Profile
 export '../screens/profile/profile_screen.dart';

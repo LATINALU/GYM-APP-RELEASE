@@ -53,7 +53,7 @@ class ExerciseCatalog {
     if (q.isEmpty) return all;
     return _allExercises.where((e) =>
         e.name.toLowerCase().contains(q) ||
-        (e.spanishName.toLowerCase().contains(q) ?? false) ||
+        e.spanishName.toLowerCase().contains(q) ||
         e.primaryMuscle.displayName.toLowerCase().contains(q)).toList();
   }
 

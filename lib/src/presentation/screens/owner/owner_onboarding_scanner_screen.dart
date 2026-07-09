@@ -134,9 +134,9 @@ class _OwnerOnboardingScannerScreenState extends State<OwnerOnboardingScannerScr
           ),
           
           // Scanner action placeholder
-          Positioned(
+          const Positioned(
             bottom: 20,
-            child: const SizedBox.shrink(),
+            child: SizedBox.shrink(),
           ),
         ],
       ),

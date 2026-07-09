@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/quantum_colors.dart';
+import '../../utils/csv_exporter.dart';
 
 /// Auditoría & Logs - Super Admin
 class AdminAuditScreen extends StatefulWidget {
@@ -115,7 +116,14 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Revisión de seguridad iniciada. Se notificará al equipo.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
               foregroundColor: Colors.redAccent,
@@ -145,7 +153,23 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
             children: [
               Text('Registro de Actividad (${logs.length} eventos)', style: QuantumTypography.h3.copyWith(color: Colors.white, fontSize: 18)),
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () async {
+                  final success = await CsvExporter.export(
+                    headers: ['Acción', 'Usuario', 'Rol', 'Gimnasio', 'IP', 'Fecha/Hora', 'Tipo'],
+                    rows: logs.map((l) => [
+                      l['action'], l['user'], l['role'], l['gym'], l['ip'], l['time'], l['type'],
+                    ]).toList(),
+                    filename: 'audit_logs_${DateTime.now().toIso8601String().split('T').first}',
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(success ? 'Logs exportados correctamente' : 'No se pudo exportar'),
+                        backgroundColor: success ? Colors.green : Colors.redAccent,
+                      ),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.file_download_outlined, size: 16),
                 label: const Text('Exportar CSV'),
                 style: ElevatedButton.styleFrom(

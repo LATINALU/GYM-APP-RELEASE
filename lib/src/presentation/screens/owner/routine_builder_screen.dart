@@ -2,25 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:drag_and_drop_lists/drag_and_drop_lists.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get_it/get_it.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../domain/entities/exercise.dart';
 import '../../../domain/entities/routine_planning.dart';
 import '../../../infrastructure/adapters/firebase/firebase_exercise_repository.dart';
+import '../../../infrastructure/adapters/firebase/firebase_owner_member_repository.dart';
+import '../../../infrastructure/config/di.dart';
 import '../../../application/services/routine_service.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
-
-// ─── QUANTUM FIT DESIGN TOKENS ───────────────────────────────────────────────
-const _kBg       = Color(0xFF0D0D1A);
-const _kSurface  = Color(0xFF16162A);
-const _kCard     = Color(0xFF1F1F3D);
-const _kInput    = Color(0xFF0D0D1A);
-const _kPrimary  = Color(0xFF6366F1);
-const _kCyan     = Color(0xFF00E0FF);
-const _kGreen    = Color(0xFF43A047);
-const _kRed      = Color(0xFFE53935);
-const _kTextSec  = Color(0xFF94A3B8);
+import '../../theme/quantum_colors.dart';
 
 // ─── HELPER MODEL: Un item del board que vincula datos con UI ────────────────
 class _BoardExercise {
@@ -28,20 +19,17 @@ class _BoardExercise {
   final String name;
   final String muscleLabel;
   final String? imageUrl;
-  int sets;
-  String reps;
+  int sets = 3;
+  String reps = '10';
   String? rpe;
   String? weight;
-  bool isConfigured;
+  bool isConfigured = false;
 
   _BoardExercise({
     required this.exerciseId,
     required this.name,
     required this.muscleLabel,
     this.imageUrl,
-    this.sets = 3,
-    this.reps = '10',
-    this.isConfigured = false,
   });
 
   /// Convertir a RoutineStep del Dominio (para guardar en Firebase)
@@ -81,7 +69,7 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
   void initState() {
     super.initState();
     _selectedMemberId = widget.memberId;
-    try { _exerciseRepo = GetIt.I<FirebaseExerciseRepository>(); } catch (_) {}
+    try { _exerciseRepo = GetIt.I<FirebaseExerciseRepository>(); } catch (e) { debugPrint('Exercise repo not available: $e'); }
     _initBoard();
   }
 
@@ -139,13 +127,13 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: _kBg,
-        body: Center(child: CircularProgressIndicator(color: _kPrimary)),
+        backgroundColor: QuantumColors.cosmicBlack,
+        body: Center(child: CircularProgressIndicator(color: QuantumColors.holoPurple)),
       );
     }
 
     return Scaffold(
-      backgroundColor: _kBg,
+      backgroundColor: QuantumColors.cosmicBlack,
       body: Column(
         children: [
           _buildTopBar(),
@@ -165,7 +153,7 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
 
               // Decoración de cada columna
               listDecoration: BoxDecoration(
-                color: _kSurface,
+                color: QuantumColors.voidGray,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
                 boxShadow: [
@@ -185,12 +173,12 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
   // ─── TOP BAR ─────────────────────────────────────────────────────────────
   Widget _buildTopBar() {
     final totalVolume = _calculateTotalVolume();
-    final configuredCount = _columns.where((c) => !c.isLibrary).fold<int>(0, (sum, c) => sum + c.items.where((i) => i.isConfigured).length);
+    final configuredCount = _columns.where((c) => !c.isLibrary).fold<int>(0, (acc, c) => acc + c.items.where((i) => i.isConfigured).length);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
       decoration: BoxDecoration(
-        color: _kBg,
+        color: QuantumColors.cosmicBlack,
         border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.04))),
       ),
       child: Row(
@@ -230,17 +218,17 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: _kPrimary.withValues(alpha: 0.08),
+        color: QuantumColors.holoPurple.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kPrimary.withValues(alpha: 0.15)),
+        border: Border.all(color: QuantumColors.holoPurple.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: _kPrimary, size: 14),
+          Icon(icon, color: QuantumColors.holoPurple, size: 14),
           const SizedBox(width: 8),
-          Text('$value  ', style: GoogleFonts.inter(color: _kPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
-          Text(label, style: GoogleFonts.inter(color: _kPrimary.withValues(alpha: 0.5), fontSize: 11)),
+          Text('$value  ', style: GoogleFonts.inter(color: QuantumColors.holoPurple, fontSize: 13, fontWeight: FontWeight.w700)),
+          Text(label, style: GoogleFonts.inter(color: QuantumColors.holoPurple.withValues(alpha: 0.5), fontSize: 11)),
         ],
       ),
     );
@@ -263,12 +251,12 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
   Widget _buildPrimaryButton(String text, IconData icon, VoidCallback? onPressed) {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _kPrimary,
+        backgroundColor: QuantumColors.holoPurple,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         elevation: 4,
-        shadowColor: _kPrimary.withValues(alpha: 0.4),
+        shadowColor: QuantumColors.holoPurple.withValues(alpha: 0.4),
       ),
       icon: _isSaving
           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -283,9 +271,9 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
     return _columns.asMap().entries.map((entry) {
       final colIndex = entry.key;
       final col = entry.value;
-      final dayVolume = col.isLibrary ? 0.0 : col.items.fold<double>(0, (sum, item) {
-        if (!item.isConfigured) return sum;
-        return sum + _routineService.calculateVolume(item.sets, item.reps, double.tryParse(item.weight ?? '50') ?? 50);
+      final dayVolume = col.isLibrary ? 0.0 : col.items.fold<double>(0, (acc, item) {
+        if (!item.isConfigured) return acc;
+        return acc + _routineService.calculateVolume(item.sets, item.reps, double.tryParse(item.weight ?? '50') ?? 50);
       });
 
       return DragAndDropList(
@@ -303,7 +291,7 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
                       fontWeight: FontWeight.w900,
                       fontSize: 14,
                       letterSpacing: 1.2,
-                      color: col.isLibrary ? _kCyan : Colors.white,
+                      color: col.isLibrary ? QuantumColors.quantumBlue : Colors.white,
                     )),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -323,20 +311,20 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: dayVolume > 0 ? _kGreen.withValues(alpha: 0.1) : Colors.transparent,
+                    color: dayVolume > 0 ? QuantumColors.matrixCyan.withValues(alpha: 0.1) : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     dayVolume > 0 ? 'CARGA: ${dayVolume.toStringAsFixed(0)} KG' : col.subtitle,
                     style: GoogleFonts.inter(
-                      color: dayVolume > 0 ? _kGreen : _kTextSec, 
+                      color: dayVolume > 0 ? QuantumColors.matrixCyan : QuantumColors.textSecondary, 
                       fontSize: 10, 
                       fontWeight: dayVolume > 0 ? FontWeight.bold : FontWeight.normal
                     ),
                   ),
                 )
               else
-                Text(col.subtitle, style: GoogleFonts.inter(color: _kCyan.withValues(alpha: 0.5), fontSize: 11)),
+                Text(col.subtitle, style: GoogleFonts.inter(color: QuantumColors.quantumBlue.withValues(alpha: 0.5), fontSize: 11)),
               const SizedBox(height: 12),
               Container(height: 1, color: Colors.white.withValues(alpha: 0.04)),
             ],
@@ -444,10 +432,10 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _kSurface,
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: _kPrimary, width: 1),
+          side: const BorderSide(color: QuantumColors.holoPurple, width: 1),
         ),
         titlePadding: const EdgeInsets.fromLTRB(32, 32, 32, 0),
         contentPadding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
@@ -461,14 +449,14 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: _kPrimary.withValues(alpha: 0.08),
+                color: QuantumColors.holoPurple.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.fitness_center, color: _kCyan, size: 16),
+                  const Icon(Icons.fitness_center, color: QuantumColors.quantumBlue, size: 16),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(exerciseName, style: GoogleFonts.inter(color: _kCyan, fontSize: 13, fontWeight: FontWeight.w600))),
+                  Expanded(child: Text(exerciseName, style: GoogleFonts.inter(color: QuantumColors.quantumBlue, fontSize: 13, fontWeight: FontWeight.w600))),
                 ],
               ),
             ),
@@ -502,7 +490,7 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: _kPrimary,
+              backgroundColor: QuantumColors.holoPurple,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
@@ -566,17 +554,16 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
       );
 
       // Audit Log Inmutable
-      await FirebaseFirestore.instance.collection('audit_logs').add({
-        'who': auth.profile?.displayName ?? 'Staff',
-        'action': 'CREATE_ROUTINE',
-        'details': 'Rutina creada para $_selectedMemberId desde Kanban Builder',
-        'timestamp': FieldValue.serverTimestamp(),
-        'module': 'RUTINAS',
-      });
+      await getIt<FirebaseOwnerMemberRepository>().logAudit(
+        who: auth.profile?.displayName ?? 'Staff',
+        action: 'CREATE_ROUTINE',
+        module: 'RUTINAS',
+        gymId: auth.profile?.gymId?.value,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: _kGreen,
+          backgroundColor: QuantumColors.matrixCyan,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           content: Text('💾 Rutina sincronizada con la Nube correctamente',
@@ -586,7 +573,7 @@ class _RoutineBuilderScreenState extends State<RoutineBuilderScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          backgroundColor: _kRed, content: Text('Error: $e'),
+          backgroundColor: QuantumColors.error, content: Text('Error: $e'),
         ));
       }
     } finally {
@@ -631,10 +618,10 @@ class _ExerciseTile extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: _kCard,
+          color: QuantumColors.elevatedGray,
           borderRadius: BorderRadius.circular(14),
           border: item.isConfigured
-              ? Border.all(color: _kCyan.withValues(alpha: 0.4), width: 1.5)
+              ? Border.all(color: QuantumColors.quantumBlue.withValues(alpha: 0.4), width: 1.5)
               : Border.all(color: Colors.white.withValues(alpha: 0.03)),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 3))],
         ),
@@ -648,12 +635,12 @@ class _ExerciseTile extends StatelessWidget {
               title: Text(item.name,
                 style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
               subtitle: Text(item.muscleLabel,
-                style: GoogleFonts.inter(color: _kTextSec, fontSize: 11)),
+                style: GoogleFonts.inter(color: QuantumColors.textSecondary, fontSize: 11)),
               trailing: isLibrary
                   ? Icon(Icons.drag_handle_rounded, color: Colors.white.withValues(alpha: 0.15), size: 18)
                   : (onDelete != null
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, color: _kRed, size: 16),
+                          icon: const Icon(Icons.close_rounded, color: QuantumColors.error, size: 16),
                           onPressed: onDelete,
                           visualDensity: VisualDensity.compact,
                         )
@@ -668,12 +655,12 @@ class _ExerciseTile extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 4,
                   children: [
-                    _Badge('${item.sets} Sets', _kPrimary),
-                    _Badge('${item.reps} Reps', _kPrimary),
+                    _Badge('${item.sets} Sets', QuantumColors.holoPurple),
+                    _Badge('${item.reps} Reps', QuantumColors.holoPurple),
                     if (item.rpe != null && item.rpe!.isNotEmpty)
                       _Badge('RPE ${item.rpe}', Colors.orangeAccent),
                     if (item.weight != null && item.weight!.isNotEmpty && item.weight != '0')
-                      _Badge('${item.weight} kg', _kCyan),
+                      _Badge('${item.weight} kg', QuantumColors.quantumBlue),
                   ],
                 ),
               ),
@@ -700,12 +687,12 @@ class _ExerciseTile extends StatelessWidget {
     return Container(
       width: 40, height: 40,
       decoration: BoxDecoration(
-        color: (item.isConfigured ? _kCyan : _kPrimary).withValues(alpha: 0.12),
+        color: (item.isConfigured ? QuantumColors.quantumBlue : QuantumColors.holoPurple).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
         item.isConfigured ? Icons.check_circle_rounded : Icons.fitness_center_rounded,
-        color: item.isConfigured ? _kCyan : _kPrimary,
+        color: item.isConfigured ? QuantumColors.quantumBlue : QuantumColors.holoPurple,
         size: 18,
       ),
     );
@@ -744,7 +731,7 @@ class _NeonInput extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(color: _kTextSec, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+        Text(label, style: GoogleFonts.inter(color: QuantumColors.textSecondary, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -753,9 +740,9 @@ class _NeonInput extends StatelessWidget {
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             filled: true,
-            fillColor: _kInput,
+            fillColor: QuantumColors.cosmicBlack,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _kCyan, width: 1.5)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: QuantumColors.quantumBlue, width: 1.5)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),

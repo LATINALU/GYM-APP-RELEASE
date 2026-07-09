@@ -30,11 +30,12 @@ class _VolumeTrackingScreenState extends State<VolumeTrackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Scaffold(
         backgroundColor: Color(0xFF0A0A0F),
         body: Center(child: CircularProgressIndicator()),
       );
+    }
     final volumes = (_dist['volumes'] as Map<String, dynamic>?) ?? {};
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0F),

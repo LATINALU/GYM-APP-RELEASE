@@ -11,7 +11,14 @@ import '../../application/services/recovery_service.dart';
 import '../../application/services/volume_tracking_service.dart';
 import '../../application/services/nutrition_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
+import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/local/local_exercise_repository.dart';
+import '../adapters/cached_assignment_repository.dart';
+import '../adapters/cached_routine_repository.dart';
+import '../adapters/cached_check_in_repository.dart';
+import '../adapters/cached_user_repository.dart';
+import '../services/local_cache_service.dart';
+import '../services/connectivity_service.dart';
 import '../services/rust_member_number_allocator.dart';
 import '../../presentation/bloc/app_bloc.dart';
 import '../../presentation/screens/settings/bloc/settings_bloc.dart';
@@ -54,7 +61,11 @@ Future<void> configureDependencies() async {
   
   if (!getIt.isRegistered<UserRepositoryPort>()) {
     getIt.registerLazySingleton<UserRepositoryPort>(
-      () => FirebaseUserRepository(getIt<FirebaseFirestore>()),
+      () => CachedUserRepository(
+        FirebaseUserRepository(getIt<FirebaseFirestore>()),
+        LocalCacheService.instance,
+        ConnectivityService.instance,
+      ),
     );
   }
   
@@ -66,19 +77,31 @@ Future<void> configureDependencies() async {
   
   if (!getIt.isRegistered<RoutineRepositoryPort>()) {
     getIt.registerLazySingleton<RoutineRepositoryPort>(
-      () => FirebaseRoutineRepository(getIt<FirebaseFirestore>()),
+      () => CachedRoutineRepository(
+        FirebaseRoutineRepository(getIt<FirebaseFirestore>()),
+        LocalCacheService.instance,
+        ConnectivityService.instance,
+      ),
     );
   }
   
   if (!getIt.isRegistered<AssignmentRepositoryPort>()) {
     getIt.registerLazySingleton<AssignmentRepositoryPort>(
-      () => FirebaseAssignmentRepository(getIt<FirebaseFirestore>()),
+      () => CachedAssignmentRepository(
+        FirebaseAssignmentRepository(getIt<FirebaseFirestore>()),
+        LocalCacheService.instance,
+        ConnectivityService.instance,
+      ),
     );
   }
   
   if (!getIt.isRegistered<CheckInRepositoryPort>()) {
     getIt.registerLazySingleton<CheckInRepositoryPort>(
-      () => FirebaseCheckInRepository(getIt<FirebaseFirestore>()),
+      () => CachedCheckInRepository(
+        FirebaseCheckInRepository(getIt<FirebaseFirestore>()),
+        LocalCacheService.instance,
+        ConnectivityService.instance,
+      ),
     );
   }
   
@@ -107,6 +130,20 @@ Future<void> configureDependencies() async {
   if (!getIt.isRegistered<ExerciseRepositoryPort>()) {
     getIt.registerLazySingleton<ExerciseRepositoryPort>(
       () => LocalExerciseRepository(),
+    );
+  }
+
+  // Firebase Exercise Repository (for CRUD operations on exercises collection)
+  if (!getIt.isRegistered<FirebaseExerciseRepository>()) {
+    getIt.registerLazySingleton<FirebaseExerciseRepository>(
+      () => FirebaseExerciseRepository(getIt<FirebaseFirestore>()),
+    );
+  }
+
+  // Owner Member Repository (gym-scoped members + audit logs)
+  if (!getIt.isRegistered<FirebaseOwnerMemberRepository>()) {
+    getIt.registerLazySingleton<FirebaseOwnerMemberRepository>(
+      () => FirebaseOwnerMemberRepository(getIt<FirebaseFirestore>()),
     );
   }
 

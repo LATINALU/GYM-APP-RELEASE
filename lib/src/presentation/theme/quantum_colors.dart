@@ -146,7 +146,7 @@ class QuantumColors {
   
   /// Color de superficie con opacidad
   static Color surface({double opacity = 0.4}) => 
-      voidGray.withOpacity(opacity);
+      voidGray.withValues(alpha: opacity);
   
   /// Color de borde sutil
   static Color get subtleBorder => Colors.white.withValues(alpha: 0.05);

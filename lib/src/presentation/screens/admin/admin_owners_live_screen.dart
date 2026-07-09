@@ -59,6 +59,49 @@ class _AdminOwnersLiveScreenState extends State<AdminOwnersLiveScreen> {
     return '${parsed.year}-$month-$day';
   }
 
+  Future<void> _toggleOwnerStatus(String ownerId, bool isActive) async {
+    final action = isActive ? 'suspender' : 'activar';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿$action dueño?', style: const TextStyle(color: Colors.white)),
+        content: Text(
+          isActive
+            ? 'Se revocará el acceso del dueño a su gimnasio.'
+            : 'El dueño recuperará acceso a su gimnasio.',
+          style: const TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isActive ? Colors.redAccent : Colors.green,
+            ),
+            child: Text(isActive ? 'Suspender' : 'Activar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _firestore
+          .collection('owners')
+          .doc(ownerId)
+          .update({'isActive': !isActive});
+      _showSuccess('Dueño ${isActive ? "suspendido" : "activado"} correctamente');
+    } catch (e) {
+      _showError('No se pudo actualizar: $e');
+    }
+  }
+
   Future<void> _createOwner(
     BuildContext dialogContext,
     List<QueryDocumentSnapshot<Map<String, dynamic>>> gyms,
@@ -537,6 +580,23 @@ class _AdminOwnersLiveScreenState extends State<AdminOwnersLiveScreen> {
                                         fontSize: 11,
                                         fontWeight: FontWeight.w700,
                                       ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: 80,
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(
+                                            isActive ? Icons.block_rounded : Icons.play_arrow_rounded,
+                                            size: 18,
+                                            color: isActive ? Colors.redAccent : Colors.greenAccent,
+                                          ),
+                                          tooltip: isActive ? 'Suspender' : 'Activar',
+                                          onPressed: () => _toggleOwnerStatus(ownerDoc.id, isActive),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/entities.dart';
 
 /// Service responsible for handling business-logic based notifications
@@ -8,7 +9,7 @@ class MembershipNotificationService {
     if (!gym.financeConfig.autoNotifyExpiration) return;
 
     if (user.needsRenewalNotification) {
-      print('PUSH NOTIFICATION: Hola ${user.displayName}, tu membresía vence en 5 días. ¡No olvides renovar!');
+      debugPrint('PUSH NOTIFICATION: Hola ${user.displayName}, tu membresía vence en 5 días. ¡No olvides renovar!');
       // In a real app, this would call the NotificationServicePort
     }
   }

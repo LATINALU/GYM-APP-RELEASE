@@ -25,8 +25,9 @@ class AuthStateNotifier extends ChangeNotifier {
   /// This flag is never auto-enabled as a fallback.
   static bool useMockAuth = false;
 
-  final fb.FirebaseAuth _firebaseAuth = fb.FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Lazy: en modo mock (tests) nunca se accede y no exige Firebase.initializeApp().
+  late final fb.FirebaseAuth _firebaseAuth = fb.FirebaseAuth.instance;
+  late final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription<fb.User?>? _authSubscription;
 
   bool _isAuthenticated = false;

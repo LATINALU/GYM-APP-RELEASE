@@ -106,9 +106,6 @@ class AutomaticRegistrationUseCase {
         lastName: command.lastName.trim(),
       );
       final role = GymRole.fromString(command.role);
-      final phone = command.phone != null && command.phone!.isNotEmpty
-          ? PhoneNumber.tryParse(command.phone!)
-          : null;
 
       // === STEP 4: Register in Firebase Auth ===
       final authResult = await _authRepository.register(
@@ -225,13 +222,6 @@ class AutomaticRegistrationUseCase {
     final digits = (random.nextInt(900) + 100).toString(); // 3 digits
 
     return '$adj$noun$digits';
-  }
-
-  /// Alternative: Generate completely random secure password
-  String _generateRandomPassword({int length = 12}) {
-    final random = Random.secure();
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%';
-    return List.generate(length, (_) => chars[random.nextInt(chars.length)]).join();
   }
 
   /// Validate phone number format

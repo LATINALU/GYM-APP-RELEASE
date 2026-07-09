@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../workout/minimal_workout_screen.dart';
-import '../screens.dart'; // Barrel file por si acaso
+import '../home/stats_screen.dart';
+import '../profile/profile_screen.dart';
 
 /// Pantalla de inicio minimalista futurista
 class MinimalHomeScreen extends StatefulWidget {
@@ -71,11 +72,11 @@ class _MinimalHomeScreenState extends State<MinimalHomeScreen> {
               ],
             ),
             
-            // 1. STATS CONTENT (Placeholder)
-            const _PlaceholderScreen(title: 'STATISTICS', icon: Icons.analytics_outlined),
+            // 1. STATS CONTENT
+            const StatsScreen(),
 
-            // 2. PROFILE CONTENT (Placeholder)
-            const _PlaceholderScreen(title: 'PROFILE', icon: Icons.person_outline),
+            // 2. PROFILE CONTENT
+            const ProfileScreen(),
           ],
         ),
       ),
@@ -529,62 +530,6 @@ class _MinimalHomeScreenState extends State<MinimalHomeScreen> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: QuantumColors.quantumBlue.withValues(alpha: 0.1),
-              border: Border.all(
-                color: QuantumColors.quantumBlue.withValues(alpha: 0.3),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: QuantumColors.quantumBlue.withValues(alpha: 0.2),
-                  blurRadius: 30,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
-            child: Icon(
-              icon, 
-              size: 64, 
-              color: QuantumColors.quantumBlue,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title, 
-            style: QuantumTypography.h2.copyWith(
-              letterSpacing: 4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'COMING SOON', 
-            style: QuantumTypography.label.copyWith(
-              color: QuantumColors.textSecondary,
-              letterSpacing: 2,
-            ),
-          ),
-        ],
       ),
     );
   }

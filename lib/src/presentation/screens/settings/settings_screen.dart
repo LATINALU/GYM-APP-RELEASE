@@ -136,7 +136,7 @@ class SettingsScreen extends StatelessWidget {
         trailing: Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: QuantumTheme.primary,
+          activeThumbColor: QuantumTheme.primary,
         ),
       ),
     );

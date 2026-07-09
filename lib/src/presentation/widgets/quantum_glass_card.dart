@@ -119,7 +119,7 @@ class _QuantumGlassCardState extends State<QuantumGlassCard>
                     ),
                     // Brillo sutil
                     BoxShadow(
-                      color: accentColor.withOpacity(_glowAnimation.value),
+                      color: accentColor.withValues(alpha: _glowAnimation.value),
                       blurRadius: 30,
                       spreadRadius: widget.showGlow ? 2 : 1,
                     ),

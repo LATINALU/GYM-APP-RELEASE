@@ -5,6 +5,7 @@ import '../../../infrastructure/config/di.dart';
 import '../../../domain/ports/output/pending_registration_repository_port.dart';
 import '../../../domain/value_objects/value_objects.dart';
 import '../../../application/use_cases/review_registration_usecase.dart';
+import '../../theme/quantum_colors.dart';
 
 /// Screen for gym owners to manage pending registration requests
 /// This is the "pre-approval queue" where users wait to be accepted into a gym
@@ -87,7 +88,7 @@ class _PendingRegistrationsScreenState
         message:
             '${registration.userName} será agregado como miembro de tu gimnasio.',
         confirmText: 'Aprobar',
-        confirmColor: const Color(0xFF10B981),
+        confirmColor: QuantumColors.matrixCyan,
       ),
     );
 
@@ -106,7 +107,7 @@ class _PendingRegistrationsScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${failure.message}'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: QuantumColors.error,
           ),
         );
       },
@@ -115,7 +116,7 @@ class _PendingRegistrationsScreenState
           SnackBar(
             content:
                 Text('${registration.userName} ha sido aprobado ✓'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: QuantumColors.matrixCyan,
           ),
         );
       },
@@ -152,7 +153,7 @@ class _PendingRegistrationsScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${failure.message}'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: QuantumColors.error,
           ),
         );
       },
@@ -160,7 +161,7 @@ class _PendingRegistrationsScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Solicitud rechazada'),
-            backgroundColor: Color(0xFFEF4444),
+            backgroundColor: QuantumColors.error,
           ),
         );
       },
@@ -173,9 +174,9 @@ class _PendingRegistrationsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F12),
+      backgroundColor: QuantumColors.cosmicBlack,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A21),
+        backgroundColor: QuantumColors.voidGray,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -193,7 +194,7 @@ class _PendingRegistrationsScreenState
                 '${_pendingList.length} pendiente${_pendingList.length != 1 ? "s" : ""}',
                 style: const TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF00E0FF),
+                  color: QuantumColors.quantumBlue,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -201,15 +202,15 @@ class _PendingRegistrationsScreenState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF00E0FF)),
+            icon: const Icon(Icons.refresh, color: QuantumColors.quantumBlue),
             onPressed: _loadRegistrations,
             tooltip: 'Actualizar',
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: const Color(0xFF00E0FF),
-          labelColor: const Color(0xFF00E0FF),
+          indicatorColor: QuantumColors.quantumBlue,
+          labelColor: QuantumColors.quantumBlue,
           unselectedLabelColor: Colors.white54,
           tabs: [
             Tab(
@@ -225,7 +226,7 @@ class _PendingRegistrationsScreenState
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444),
+                        color: QuantumColors.error,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -257,17 +258,21 @@ class _PendingRegistrationsScreenState
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF00E0FF),
+                color: QuantumColors.quantumBlue,
               ),
             )
           : _error != null
               ? _buildErrorState()
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildPendingTab(),
-                    _buildHistoryTab(),
-                  ],
+              : RefreshIndicator(
+                  color: QuantumColors.quantumBlue,
+                  onRefresh: _loadRegistrations,
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPendingTab(),
+                      _buildHistoryTab(),
+                    ],
+                  ),
                 ),
     );
   }
@@ -280,7 +285,7 @@ class _PendingRegistrationsScreenState
           const Icon(
             Icons.error_outline,
             size: 64,
-            color: Color(0xFFEF4444),
+            color: QuantumColors.error,
           ),
           const SizedBox(height: 16),
           Text(
@@ -294,7 +299,7 @@ class _PendingRegistrationsScreenState
             icon: const Icon(Icons.refresh),
             label: const Text('Reintentar'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00E0FF),
+              backgroundColor: QuantumColors.quantumBlue,
               foregroundColor: Colors.black,
             ),
           ),
@@ -312,7 +317,7 @@ class _PendingRegistrationsScreenState
             Icon(
               Icons.check_circle_outline,
               size: 80,
-              color: const Color(0xFF00FFE0).withValues(alpha: 0.3),
+              color: QuantumColors.matrixCyan.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -338,8 +343,8 @@ class _PendingRegistrationsScreenState
 
     return RefreshIndicator(
       onRefresh: _loadRegistrations,
-      color: const Color(0xFF00E0FF),
-      backgroundColor: const Color(0xFF1A1A21),
+      color: QuantumColors.quantumBlue,
+      backgroundColor: QuantumColors.voidGray,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _pendingList.length,
@@ -400,14 +405,14 @@ class _RegistrationCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A21),
+        color: QuantumColors.voidGray,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF00E0FF).withValues(alpha: 0.15),
+          color: QuantumColors.quantumBlue.withValues(alpha: 0.15),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00E0FF).withValues(alpha: 0.05),
+            color: QuantumColors.quantumBlue.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -427,7 +432,7 @@ class _RegistrationCard extends StatelessWidget {
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF00E0FF), Color(0xFF00FFE0)],
+                      colors: [QuantumColors.quantumBlue, QuantumColors.matrixCyan],
                     ),
                     borderRadius: BorderRadius.circular(24),
                   ),
@@ -439,7 +444,7 @@ class _RegistrationCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F0F12),
+                        color: QuantumColors.cosmicBlack,
                       ),
                     ),
                   ),
@@ -543,13 +548,13 @@ class _RegistrationCard extends StatelessWidget {
                       Row(
                         children: [
                           const Icon(Icons.flag, size: 14,
-                              color: Color(0xFF00FFE0)),
+                              color: QuantumColors.matrixCyan),
                           const SizedBox(width: 6),
                           Text(
                             'Meta: ${registration.fitnessGoal}',
                             style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF00FFE0),
+                              color: QuantumColors.matrixCyan,
                             ),
                           ),
                         ],
@@ -586,7 +591,7 @@ class _RegistrationCard extends StatelessWidget {
                     Icons.timer_outlined,
                     size: 14,
                     color: registration.daysRemaining! <= 5
-                        ? const Color(0xFFEF4444)
+                        ? QuantumColors.error
                         : Colors.white38,
                   ),
                   const SizedBox(width: 4),
@@ -595,7 +600,7 @@ class _RegistrationCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       color: registration.daysRemaining! <= 5
-                          ? const Color(0xFFEF4444)
+                          ? QuantumColors.error
                           : Colors.white38,
                     ),
                   ),
@@ -609,7 +614,7 @@ class _RegistrationCard extends StatelessWidget {
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Rechazar'),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
+                    foregroundColor: QuantumColors.error,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                   ),
@@ -623,7 +628,7 @@ class _RegistrationCard extends StatelessWidget {
                   icon: const Icon(Icons.check, size: 16),
                   label: const Text('Aprobar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
+                    backgroundColor: QuantumColors.matrixCyan,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 6),
@@ -643,15 +648,15 @@ class _RegistrationCard extends StatelessWidget {
   Color _getSourceColor(RegistrationSource source) {
     switch (source) {
       case RegistrationSource.qrScan:
-        return const Color(0xFF00E0FF);
+        return QuantumColors.quantumBlue;
       case RegistrationSource.manualCode:
-        return const Color(0xFF8B5CF6);
+        return QuantumColors.holoPurple;
       case RegistrationSource.invitation:
-        return const Color(0xFF10B981);
+        return QuantumColors.matrixCyan;
       case RegistrationSource.appSearch:
-        return const Color(0xFFF59E0B);
+        return QuantumColors.warning;
       case RegistrationSource.transfer:
-        return const Color(0xFFEC4899);
+        return QuantumColors.holoPurple;
     }
   }
 
@@ -688,7 +693,7 @@ class _HistoryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A21).withValues(alpha: 0.5),
+        color: QuantumColors.voidGray.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.05),
@@ -749,15 +754,15 @@ class _HistoryCard extends StatelessWidget {
   Color _getStatusColor() {
     switch (registration.status) {
       case RegistrationStatus.approved:
-        return const Color(0xFF10B981);
+        return QuantumColors.matrixCyan;
       case RegistrationStatus.rejected:
-        return const Color(0xFFEF4444);
+        return QuantumColors.error;
       case RegistrationStatus.expired:
-        return const Color(0xFFF59E0B);
+        return QuantumColors.warning;
       case RegistrationStatus.cancelled:
         return Colors.white38;
       case RegistrationStatus.pendingReview:
-        return const Color(0xFF00E0FF);
+        return QuantumColors.quantumBlue;
     }
   }
 
@@ -797,7 +802,7 @@ class _ConfirmationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A21),
+      backgroundColor: QuantumColors.voidGray,
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(title,
@@ -835,7 +840,7 @@ class _RejectionDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A21),
+      backgroundColor: QuantumColors.voidGray,
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('Rechazar Solicitud',
@@ -875,7 +880,7 @@ class _RejectionDialog extends StatelessWidget {
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: QuantumColors.error,
             foregroundColor: Colors.white,
           ),
           child: const Text('Rechazar'),

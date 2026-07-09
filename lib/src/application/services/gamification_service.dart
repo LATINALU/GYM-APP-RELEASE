@@ -98,8 +98,9 @@ class GamificationService {
         final diff = today.difference(lastWorkout).inDays;
         if (diff == 1) {
           streak++;
-        } else if (diff > 1)
+        } else if (diff > 1) {
           streak = 1;
+        }
       } else {
         streak = 1;
       }

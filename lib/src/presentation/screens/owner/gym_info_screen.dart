@@ -462,7 +462,7 @@ class _GymInfoScreenState extends State<GymInfoScreen> {
                   Switch(
                     value: _openSunday,
                     onChanged: _isEditing ? (v) => setState(() => _openSunday = v) : null,
-                    activeColor: QuantumColors.matrixCyan,
+                    activeThumbColor: QuantumColors.matrixCyan,
                   ),
                 ],
               ),

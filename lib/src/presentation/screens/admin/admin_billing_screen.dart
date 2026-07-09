@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/quantum_colors.dart';
+import '../../utils/csv_exporter.dart';
 
 /// Facturación & Planes - Super Admin
 class AdminBillingScreen extends StatefulWidget {
@@ -148,7 +149,7 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () => _showEditPlanDialog(context, plan),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: plan['color'] as Color,
                     side: BorderSide(color: (plan['color'] as Color).withValues(alpha: 0.3)),
@@ -181,7 +182,23 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             children: [
               Text('Facturas Recientes', style: QuantumTypography.h3.copyWith(color: Colors.white, fontSize: 18)),
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () async {
+                  final success = await CsvExporter.export(
+                    headers: ['Gimnasio', 'Plan', 'Monto', 'Estado', 'Fecha'],
+                    rows: _invoices.map((inv) => [
+                      inv['gym'], inv['plan'], inv['amount'], inv['status'], inv['date'],
+                    ]).toList(),
+                    filename: 'facturas_${DateTime.now().toIso8601String().split('T').first}',
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(success ? 'Facturas exportadas correctamente' : 'No se pudo exportar'),
+                        backgroundColor: success ? Colors.green : Colors.redAccent,
+                      ),
+                    );
+                  }
+                },
                 icon: const Icon(Icons.file_download_outlined, size: 16),
                 label: const Text('Exportar'),
                 style: ElevatedButton.styleFrom(
@@ -236,7 +253,94 @@ class _AdminBillingScreenState extends State<AdminBillingScreen> {
             ),
           ),
           Expanded(child: Text(inv['date'], style: const TextStyle(color: Colors.white30, fontSize: 12))),
-          SizedBox(width: 40, child: IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Colors.white24, size: 18), onPressed: () {})),
+          SizedBox(width: 40, child: IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Colors.white24, size: 18), onPressed: () => _showInvoiceDetail(context, inv))),
+        ],
+      ),
+    );
+  }
+
+  void _showEditPlanDialog(BuildContext context, Map<String, dynamic> plan) {
+    final nameCtrl = TextEditingController(text: plan['name']?.toString() ?? '');
+    final priceCtrl = TextEditingController(text: plan['price']?.toString() ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Editar ${plan['name']}', style: const TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Nombre', labelStyle: TextStyle(color: Colors.white38)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: priceCtrl,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Precio', labelStyle: TextStyle(color: Colors.white38), prefixText: '\$ '),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Plan ${plan['name']} actualizado'), backgroundColor: plan['color'] as Color),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: plan['color'] as Color),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInvoiceDetail(BuildContext context, Map<String, dynamic> inv) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Detalle de Factura', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _detailRow('Gimnasio', inv['gym']?.toString() ?? 'N/A'),
+            _detailRow('Monto', '\$${inv['amount']?.toString() ?? '0'}'),
+            _detailRow('Estado', inv['status']?.toString() ?? 'N/A'),
+            _detailRow('Fecha', inv['date']?.toString() ?? 'N/A'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 13)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
         ],
       ),
     );

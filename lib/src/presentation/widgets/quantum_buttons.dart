@@ -100,8 +100,8 @@ class _FloatingActionHologramState extends State<FloatingActionHologram>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      buttonColor.withOpacity(_glowAnimation.value + 0.3),
-                      buttonColor.withOpacity(_glowAnimation.value),
+                      buttonColor.withValues(alpha: _glowAnimation.value + 0.3),
+                      buttonColor.withValues(alpha: _glowAnimation.value),
                     ],
                     center: const Alignment(0.1, -0.1),
                     focal: const Alignment(0.1, -0.1),
@@ -109,12 +109,12 @@ class _FloatingActionHologramState extends State<FloatingActionHologram>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: buttonColor.withOpacity(_glowAnimation.value),
+                      color: buttonColor.withValues(alpha: _glowAnimation.value),
                       blurRadius: 25,
                       spreadRadius: 5,
                     ),
                     BoxShadow(
-                      color: buttonColor.withOpacity(_glowAnimation.value * 0.5),
+                      color: buttonColor.withValues(alpha: _glowAnimation.value * 0.5),
                       blurRadius: 50,
                       spreadRadius: 15,
                     ),

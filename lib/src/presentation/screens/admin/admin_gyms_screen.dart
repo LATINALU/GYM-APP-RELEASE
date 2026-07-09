@@ -225,7 +225,7 @@ class _AdminGymsScreenState extends State<AdminGymsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _toggleGymStatus(gym),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: gym['status'] == 'suspended' ? const Color(0xFF10B981) : Colors.redAccent.withValues(alpha: 0.8),
                     foregroundColor: Colors.white,
@@ -436,6 +436,55 @@ class _AdminGymsScreenState extends State<AdminGymsScreen> {
         children: [
           Text(label, style: const TextStyle(color: Colors.white38, fontSize: 13)),
           Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  void _toggleGymStatus(Map<String, dynamic> gym) {
+    final isSuspended = gym['status'] == 'suspended';
+    final action = isSuspended ? 'activar' : 'suspender';
+    final actionColor = isSuspended ? const Color(0xFF10B981) : Colors.redAccent;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿$action ${gym['name']}?', style: const TextStyle(color: Colors.white)),
+        content: Text(
+          isSuspended
+            ? 'El gimnasio volverá a estar operativo para dueño, staff y clientes.'
+            : 'Se bloqueará el acceso al gimnasio para todos los usuarios.',
+          style: const TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                final idx = _gyms.indexWhere((g) => g['id'] == gym['id']);
+                if (idx >= 0) {
+                  _gyms[idx] = {
+                    ..._gyms[idx],
+                    'status': isSuspended ? 'active' : 'suspended',
+                  };
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${gym['name']} ${isSuspended ? "activado" : "suspendido"}'),
+                  backgroundColor: actionColor,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: actionColor),
+            child: Text(isSuspended ? 'Activar' : 'Suspender'),
+          ),
         ],
       ),
     );

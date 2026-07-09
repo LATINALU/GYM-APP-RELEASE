@@ -106,7 +106,7 @@ class _EnhancedCashReconciliationScreenState
         };
       });
     } catch (e) {
-      print('Error loading system data: $e');
+      debugPrint('Error loading system data: $e');
     }
   }
 
@@ -399,15 +399,15 @@ class _EnhancedCashReconciliationScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.computer_rounded,
                 color: QuantumColors.quantumBlue,
                 size: 24,
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'DATOS DEL SISTEMA',
                 style: TextStyle(
                   color: Colors.white,
@@ -725,8 +725,8 @@ class _EnhancedCashReconciliationScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('✓ Caja cerrada y auditada exitosamente'),
+          const SnackBar(
+            content: Text('✓ Caja cerrada y auditada exitosamente'),
             backgroundColor: QuantumColors.success,
           ),
         );

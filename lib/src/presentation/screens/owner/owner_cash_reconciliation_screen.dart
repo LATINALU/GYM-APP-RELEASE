@@ -350,13 +350,14 @@ class _OwnerCashReconciliationScreenState
         context.pop();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFFF3366),
             content: Text('Error: $e'),
           ),
         );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

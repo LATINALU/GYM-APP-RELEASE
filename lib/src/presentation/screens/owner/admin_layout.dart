@@ -273,19 +273,17 @@ class _SidebarItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-  final Color? color;
 
   const _SidebarItem({
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = color ?? QuantumColors.quantumBlue;
+    const activeColor = QuantumColors.quantumBlue;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -315,7 +313,7 @@ class _SidebarItem extends StatelessWidget {
                 color:
                     isSelected
                         ? activeColor
-                        : (color ?? Colors.white.withValues(alpha: 0.4)),
+                        : Colors.white.withValues(alpha: 0.4),
                 size: 20,
               ),
               const SizedBox(width: 16),
@@ -326,7 +324,7 @@ class _SidebarItem extends StatelessWidget {
                     color:
                         isSelected
                             ? Colors.white
-                            : (color ?? Colors.white.withValues(alpha: 0.4)),
+                            : Colors.white.withValues(alpha: 0.4),
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     fontSize: 14,
                   ),

@@ -217,7 +217,7 @@ class _PosInventoryScreenState extends State<PosInventoryScreen> {
                   const SizedBox(height: 4),
                   Text(
                     product.category,
-                    style: TextStyle(color: QuantumColors.quantumBlue, fontSize: 12),
+                    style: const TextStyle(color: QuantumColors.quantumBlue, fontSize: 12),
                   ),
                   const Spacer(),
                   Row(
@@ -314,7 +314,7 @@ class _PosInventoryScreenState extends State<PosInventoryScreen> {
                   _dialogField('Nombre del producto', Icons.shopping_bag, nameCtrl),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedCategory,
+                    initialValue: selectedCategory,
                     dropdownColor: const Color(0xFF1A1A2E),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

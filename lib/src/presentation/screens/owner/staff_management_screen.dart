@@ -177,10 +177,11 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
     Color roleColor;
     if (role == 'Dueño') {
       roleColor = const Color(0xFFFFD700);
-    } else if (role == 'Entrenador')
+    } else if (role == 'Entrenador') {
       roleColor = const Color(0xFF4D49FF);
-    else
+    } else {
       roleColor = const Color(0xFF00E676);
+    }
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -216,7 +217,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
               Switch(
                 value: isActive,
                 onChanged: (v) => _toggleStaffAccess(id, v, member['name']),
-                activeColor: const Color(0xFF00E676),
+                activeThumbColor: const Color(0xFF00E676),
                 inactiveThumbColor: Colors.white24,
                 inactiveTrackColor: Colors.white10,
               ),
@@ -570,7 +571,7 @@ class _StaffManagementScreenState extends State<StaffManagementScreen> {
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: DropdownButtonFormField<String>(
-                            value: selectedRole,
+                            initialValue: selectedRole,
                             dropdownColor: const Color(0xFF1A1A2E),
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(

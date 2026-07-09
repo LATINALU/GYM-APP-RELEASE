@@ -54,8 +54,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           String timeStr;
           if (ago.inMinutes < 60) {
             timeStr = '${ago.inMinutes}m';
-          } else if (ago.inHours < 24) timeStr = '${ago.inHours}h';
-          else timeStr = '${ago.inDays}d';
+          } else if (ago.inHours < 24) {
+            timeStr = '${ago.inHours}h';
+          } else {
+            timeStr = '${ago.inDays}d';
+          }
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),

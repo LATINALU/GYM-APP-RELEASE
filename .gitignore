@@ -55,3 +55,13 @@ rust-services/**/target/
 rust-services/**/member_numbers.db
 rust-services/**/member_numbers.db-*
 test-users.local.json
+
+# Secretos y entornos locales
+.env
+.env.local
+
+# Salidas de analisis locales
+analysis*.txt
+const_warns.txt
+warnings_completo.txt
+logs/

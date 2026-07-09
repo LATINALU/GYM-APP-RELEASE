@@ -3,7 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Application Service para cálculos financieros del gimnasio.
 /// Centraliza la lógica de negocio de finanzas sin depender de la UI.
 class FinanceService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FinanceService({FirebaseFirestore? firestore}) : _firestoreOverride = firestore;
+
+  final FirebaseFirestore? _firestoreOverride;
+
+  // Lazy: permite inyectar un Firestore fake en tests y no exige
+  // Firebase.initializeApp() al construir el servicio.
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   String _requireGymId(String gymId) {
     final normalized = gymId.trim();

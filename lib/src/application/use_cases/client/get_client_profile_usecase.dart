@@ -29,7 +29,7 @@ class ClientProfileData {
 
   /// Total volume from recent sessions
   double get totalVolume =>
-      recentSessions.fold(0.0, (sum, s) => sum + s.totalVolume);
+      recentSessions.fold(0.0, (acc, s) => acc + s.totalVolume);
 
   /// Total workouts completed
   int get completedWorkouts =>

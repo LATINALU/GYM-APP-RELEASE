@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/quantum_colors.dart';
+import '../../utils/csv_exporter.dart';
 
 /// Reportes Globales - Super Admin
 class AdminReportsScreen extends StatefulWidget {
@@ -76,7 +77,30 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             )),
             const SizedBox(width: 16),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () async {
+                final topGyms = [
+                  {'name': 'PowerHouse', 'revenue': '\$145,000', 'members': 567, 'growth': '+15%'},
+                  {'name': 'Titan Fitness', 'revenue': '\$98,000', 'members': 421, 'growth': '+12%'},
+                  {'name': 'Iron Temple', 'revenue': '\$85,000', 'members': 342, 'growth': '+8%'},
+                  {'name': 'FitZone Pro', 'revenue': '\$72,000', 'members': 298, 'growth': '+6%'},
+                  {'name': 'Quantum Center', 'revenue': '\$61,000', 'members': 245, 'growth': '+4%'},
+                ];
+                final success = await CsvExporter.export(
+                  headers: ['Gimnasio', 'Ingresos', 'Miembros', 'Crecimiento'],
+                  rows: topGyms.map((g) => [
+                    g['name'], g['revenue'], g['members'], g['growth'],
+                  ]).toList(),
+                  filename: 'reporte_${_selectedPeriod}_${DateTime.now().toIso8601String().split('T').first}',
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success ? 'Reporte exportado correctamente' : 'No se pudo exportar'),
+                      backgroundColor: success ? Colors.green : Colors.redAccent,
+                    ),
+                  );
+                }
+              },
               icon: const Icon(Icons.file_download_outlined, size: 18),
               label: const Text('Exportar PDF'),
               style: ElevatedButton.styleFrom(

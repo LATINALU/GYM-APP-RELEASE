@@ -21,10 +21,9 @@ dependencies:
   firebase_auth: ^5.2.0
   cloud_firestore: ^5.3.0
 
-  # State Management (dual: BLoC + Provider)
+  # State Management
   flutter_bloc: ^8.1.5
   bloc: ^8.1.4
-  provider: ^6.1.5
 
   # Dependency Injection
   get_it: ^8.3.0
@@ -45,6 +44,11 @@ dependencies:
   equatable: ^2.0.8
   logger: ^2.4.0
 
+  # Offline-first
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  connectivity_plus: ^6.0.3
+
   # Charts & Data
   fl_chart: ^0.68.0
   flutter_hooks: ^0.20.5
@@ -55,7 +59,9 @@ dependencies:
   drag_and_drop_lists: ^0.4.2
   cached_network_image: ^3.4.1
   qr_flutter: ^4.1.0
+  mobile_scanner: ^7.0.0
   firebase_messaging: ^15.1.0
+  firebase_app_check: ^0.3.0
   flutter_local_notifications: ^18.0.1
   file_picker: ^10.3.10
   desktop_drop: ^0.7.0
@@ -69,6 +75,7 @@ dev_dependencies:
 
   # Lints actualizados a versión más reciente
   flutter_lints: ^5.0.0
+  network_image_mock: ^2.1.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'access_console_screen.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
+import '../../../infrastructure/config/di.dart';
+import '../../../infrastructure/adapters/firebase/firebase_owner_member_repository.dart';
 
 import '../../theme/quantum_colors.dart';
 
@@ -41,69 +42,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         throw Exception('gymId no disponible para cargar KPIs');
       }
 
-      // Load active memberships count
-      final membersSnap =
-          await FirebaseFirestore.instance
-              .collection('gyms')
-              .doc(gymId)
-              .collection('members')
-              .where('status', isEqualTo: 'Activos')
-              .get();
-
-      // Load all members for churn calculation
-      final allMembersSnap =
-          await FirebaseFirestore.instance
-              .collection('gyms')
-              .doc(gymId)
-              .collection('members')
-              .get();
-
-      // Load monthly revenue from daily_closings (strict gymId)
-      final today = DateTime.now();
-      final startOfMonth = DateTime(today.year, today.month, 1);
-      final revenueSnap =
-          await FirebaseFirestore.instance
-              .collection('daily_closings')
-              .where('gymId', isEqualTo: gymId)
-              .where(
-                'timestamp',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
-              )
-              .get();
-
-      double totalRevenue = 0;
-      for (final doc in revenueSnap.docs) {
-        totalRevenue += (doc.data()['real_amount'] as num? ?? 0).toDouble();
-      }
-
-      // Load check-ins in last 24h (strict gymId)
-      final last24h = today.subtract(const Duration(hours: 24));
-      final accessSnap =
-          await FirebaseFirestore.instance
-              .collection('access_logs')
-              .where('gymId', isEqualTo: gymId)
-              .where(
-                'timestamp',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(last24h),
-              )
-              .get();
+      final kpis = await getIt<FirebaseOwnerMemberRepository>().loadDashboardKPIs(gymId);
 
       if (mounted) {
-        final totalMembers = allMembersSnap.docs.length;
-        final expired =
-            allMembersSnap.docs
-                .where((d) => d.data()['status'] == 'Vencidos')
-                .length;
+        final totalMembers = kpis['totalMembers'] as int;
+        final expired = kpis['expiredMembers'] as int;
 
         setState(() {
-          _activeMemberships = membersSnap.docs.length;
-          _monthlyRevenue = totalRevenue;
-          _accesses24h = accessSnap.docs.length;
+          _activeMemberships = kpis['activeMemberships'] as int;
+          _monthlyRevenue = kpis['monthlyRevenue'] as double;
+          _accesses24h = kpis['accesses24h'] as int;
           _churnRate = totalMembers > 0 ? (expired / totalMembers * 100) : 0;
           _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _activeMemberships = 0;
@@ -112,6 +65,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           _churnRate = 0;
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar KPIs: $e'),
+            backgroundColor: QuantumColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -129,7 +89,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ],
         ),
       ),
-      child: SingleChildScrollView(
+      child: RefreshIndicator(
+        color: QuantumColors.quantumBlue,
+        onRefresh: _loadKPIs,
+        child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.all(40.0),
         child: Column(
@@ -172,6 +135,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             const SizedBox(height: 100),
           ],
         ),
+      ),
       ),
     );
   }

@@ -361,8 +361,7 @@ class _RoutineEditorView extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: exercises.length,
-      onReorder: (oldIndex, newIndex) {
-        if (newIndex > oldIndex) newIndex--;
+      onReorderItem: (oldIndex, newIndex) {
         context.read<RoutineBloc>().add(ReorderExercises(oldIndex, newIndex));
       },
       itemBuilder: (context, index) {

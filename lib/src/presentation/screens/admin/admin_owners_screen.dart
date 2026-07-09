@@ -195,8 +195,8 @@ class _AdminOwnersScreenState extends State<AdminOwnersScreen> {
             width: 80,
             child: Row(
               children: [
-                IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.white24, size: 18), onPressed: () {}, tooltip: 'Editar'),
-                IconButton(icon: Icon(owner['status'] == 'suspended' ? Icons.play_arrow_rounded : Icons.block_rounded, color: Colors.white24, size: 18), onPressed: () {}, tooltip: owner['status'] == 'suspended' ? 'Activar' : 'Suspender'),
+                IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.white24, size: 18), onPressed: () => _showEditOwnerDialog(owner), tooltip: 'Editar'),
+                IconButton(icon: Icon(owner['status'] == 'suspended' ? Icons.play_arrow_rounded : Icons.block_rounded, color: Colors.white24, size: 18), onPressed: () => _toggleOwnerStatus(owner), tooltip: owner['status'] == 'suspended' ? 'Activar' : 'Suspender'),
               ],
             ),
           ),
@@ -373,6 +373,151 @@ class _AdminOwnersScreenState extends State<AdminOwnersScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _toggleOwnerStatus(Map<String, dynamic> owner) {
+    final isSuspended = owner['status'] == 'suspended';
+    final action = isSuspended ? 'activar' : 'suspender';
+    final actionColor = isSuspended ? const Color(0xFF10B981) : Colors.redAccent;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿$action a ${owner['name']}?', style: const TextStyle(color: Colors.white)),
+        content: Text(
+          isSuspended
+            ? 'El dueño recuperará acceso a su gimnasio.'
+            : 'Se revocará el acceso del dueño a su gimnasio.',
+          style: const TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                final idx = _owners.indexOf(owner);
+                if (idx >= 0) {
+                  _owners[idx] = {
+                    ...owner,
+                    'status': isSuspended ? 'active' : 'suspended',
+                  };
+                }
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${owner['name']} ${isSuspended ? "activado" : "suspendido"}'),
+                  backgroundColor: actionColor,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: actionColor),
+            child: Text(isSuspended ? 'Activar' : 'Suspender'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditOwnerDialog(Map<String, dynamic> owner) {
+    final nameCtrl = TextEditingController(text: owner['name']);
+    final emailCtrl = TextEditingController(text: owner['email']);
+    String selectedPlan = owner['plan'] as String;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          backgroundColor: QuantumColors.surface(),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Editar ${owner['name']}', style: const TextStyle(color: Colors.white)),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildEditField('Nombre', nameCtrl),
+                const SizedBox(height: 16),
+                _buildEditField('Email', emailCtrl),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedPlan,
+                  dropdownColor: QuantumColors.surface(),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Plan',
+                    labelStyle: const TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.03),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Trial', child: Text('Trial')),
+                    DropdownMenuItem(value: 'Básico', child: Text('Básico')),
+                    DropdownMenuItem(value: 'Premium', child: Text('Premium')),
+                    DropdownMenuItem(value: 'Enterprise', child: Text('Enterprise')),
+                  ],
+                  onChanged: (v) => selectedPlan = v ?? 'Básico',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameCtrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx);
+                setState(() {
+                  final idx = _owners.indexOf(owner);
+                  if (idx >= 0) {
+                    _owners[idx] = {
+                      ...owner,
+                      'name': nameCtrl.text.trim(),
+                      'email': emailCtrl.text.trim(),
+                      'plan': selectedPlan,
+                    };
+                  }
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Dueño actualizado'),
+                    backgroundColor: Color(0xFF10B981),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6B35)),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEditField(String label, TextEditingController ctrl) {
+    return TextField(
+      controller: ctrl,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white38),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.03),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFFF6B35))),
+        contentPadding: const EdgeInsets.all(14),
+      ),
     );
   }
 }

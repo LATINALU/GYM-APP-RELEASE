@@ -32,14 +32,14 @@ class ClientHomeScreen extends StatelessWidget {
                 SliverToBoxAdapter(child: _buildHeader(context, user)),
                 // Quick Actions
                 SliverToBoxAdapter(child: _buildQuickActions(context)),
-                SliverToBoxAdapter(child: const SizedBox(height: 12)),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 // Today's Routine
                 SliverToBoxAdapter(child: _buildTodayRoutine(context)),
-                SliverToBoxAdapter(child: const SizedBox(height: 12)),
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
                 // Stats
                 SliverToBoxAdapter(child: _buildStats(context)),
-                SliverToBoxAdapter(
-                  child: const SizedBox(height: 100), // Espacio para bottom nav
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 100), // Espacio para bottom nav
                 ),
               ],
             ),
@@ -146,7 +146,7 @@ class ClientHomeScreen extends StatelessWidget {
             context,
             icon: Icons.qr_code,
             label: 'Acceso QR',
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [QuantumColors.quantumBlue, QuantumColors.deepSpaceBlue],
             ),
             onTap: () {
@@ -158,7 +158,7 @@ class ClientHomeScreen extends StatelessWidget {
             context,
             icon: Icons.analytics_outlined,
             label: 'Historial',
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [QuantumColors.holoPurple, QuantumColors.deepSpaceBlue],
             ),
             onTap: () {
@@ -174,7 +174,7 @@ class ClientHomeScreen extends StatelessWidget {
             context,
             icon: Icons.bolt_rounded,
             label: 'Rutinas',
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [QuantumColors.matrixCyan, QuantumColors.quantumBlue],
             ),
             onTap: () {
@@ -350,7 +350,7 @@ class ClientHomeScreen extends StatelessWidget {
       children: [
         Text(
           assignedPlan.name,
-          style: TextStyle(
+          style: const TextStyle(
             color: QuantumColors.quantumBlue,
             fontSize: 12,
             fontWeight: FontWeight.bold,
@@ -549,8 +549,8 @@ class ClientHomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 4),
                   child: Icon(
                     Icons.arrow_upward_rounded,
                     color: QuantumColors.success,
@@ -580,9 +580,9 @@ class ClientHomeScreen extends StatelessWidget {
           if (index == 2) context.push('/profile');
         },
         items: [
-          NavigationItem(icon: Icons.home_rounded, label: 'Inicio'),
-          NavigationItem(icon: Icons.bolt_rounded, label: 'Rutinas'),
-          NavigationItem(icon: Icons.person_rounded, label: 'Perfil'),
+          const NavigationItem(icon: Icons.home_rounded, label: 'Inicio'),
+          const NavigationItem(icon: Icons.bolt_rounded, label: 'Rutinas'),
+          const NavigationItem(icon: Icons.person_rounded, label: 'Perfil'),
         ],
       ),
     );

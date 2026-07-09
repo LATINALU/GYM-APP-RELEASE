@@ -82,7 +82,7 @@ class _DataMatrixCardState extends State<DataMatrixCard>
                   offset: const Offset(0, 10),
                 ),
                 BoxShadow(
-                  color: accentColor.withOpacity(0.03 + (_pulseAnimation.value * 0.02)),
+                  color: accentColor.withValues(alpha: 0.03 + (_pulseAnimation.value * 0.02)),
                   blurRadius: 30,
                   spreadRadius: 1,
                 ),

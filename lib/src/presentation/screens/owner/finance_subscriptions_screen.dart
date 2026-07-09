@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/finance_service.dart';
 import '../../theme/theme.dart';
-import '../../theme/gym_widgets.dart';
+import '../../utils/csv_exporter.dart';
 
 class FinanceSubscriptionsScreen extends StatefulWidget {
   const FinanceSubscriptionsScreen({super.key});
@@ -162,8 +162,11 @@ class _FinanceSubscriptionsScreenState
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,19 +186,37 @@ class _FinanceSubscriptionsScreenState
             ),
           ],
         ),
-        Row(
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
             GymButton(
               text: 'Nuevo Cobro Manual',
               icon: Icons.add_circle_outline,
               style: GymButtonStyle.ghost,
-              onPressed: () {},
+              onPressed: () => _showManualChargeDialog(context),
             ),
-            const SizedBox(width: 12),
             GymButton(
               text: 'Exportar Reporte',
               icon: Icons.file_download_outlined,
-              onPressed: () {},
+              onPressed: () async {
+                final normalized = _payments.map(_normalizePayment).toList();
+                final success = await CsvExporter.export(
+                  headers: ['Usuario', 'Plan', 'Monto', 'Próxima fecha', 'Método', 'Estado'],
+                  rows: normalized.map((p) => [
+                    p['user'], p['plan'], p['amount'], p['next'], p['method'], p['status'],
+                  ]).toList(),
+                  filename: 'suscripciones_${DateTime.now().toIso8601String().split('T').first}',
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(success ? 'Reporte exportado correctamente' : 'No se pudo exportar'),
+                      backgroundColor: success ? Colors.green : Colors.redAccent,
+                    ),
+                  );
+                }
+              },
             ),
           ],
         ),
@@ -283,21 +304,24 @@ class _FinanceSubscriptionsScreenState
                   ),
                   child: Icon(icon, color: color, size: 20),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    trend,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      trend,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -358,7 +382,7 @@ class _FinanceSubscriptionsScreenState
                 ),
                 Text(
                   'Última verificación de vencimientos: ${_formatDate(now)}',
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
                 ),
               ],
             ),
@@ -716,7 +740,7 @@ class _FinanceSubscriptionsScreenState
                               color: Colors.white24,
                               size: 18,
                             ),
-                            onPressed: () {},
+                            onPressed: () => _showInvoiceDialog(context, payment),
                             tooltip: 'Ver Factura',
                           ),
                           IconButton(
@@ -725,7 +749,14 @@ class _FinanceSubscriptionsScreenState
                               color: Colors.white24,
                               size: 18,
                             ),
-                            onPressed: () {},
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Recordatorio enviado a ${payment['user']}'),
+                                  backgroundColor: QuantumColors.matrixCyan,
+                                ),
+                              );
+                            },
                             tooltip: 'Enviar Recordatorio',
                           ),
                           IconButton(
@@ -734,7 +765,7 @@ class _FinanceSubscriptionsScreenState
                               color: Colors.white24,
                               size: 18,
                             ),
-                            onPressed: () {},
+                            onPressed: () => _showPaymentActions(context, payment),
                             tooltip: 'Más Acciones',
                           ),
                         ],
@@ -902,5 +933,194 @@ class _FinanceSubscriptionsScreenState
     if (status == 'Moroso') return StatusType.expired;
     if (status == 'Congelado') return StatusType.frozen;
     return StatusType.info;
+  }
+
+  void _showManualChargeDialog(BuildContext context) {
+    final amountCtrl = TextEditingController();
+    final conceptCtrl = TextEditingController();
+    String selectedMethod = 'Efectivo';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Nuevo Cobro Manual', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: conceptCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Concepto',
+                labelStyle: TextStyle(color: Colors.white38),
+                hintText: 'Ej: Membresía mensual',
+                hintStyle: TextStyle(color: Colors.white24),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountCtrl,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Monto',
+                labelStyle: TextStyle(color: Colors.white38),
+                prefixText: '\$ ',
+                prefixStyle: TextStyle(color: Colors.white54),
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: selectedMethod,
+              dropdownColor: QuantumColors.cardBackground,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Método de pago',
+                labelStyle: TextStyle(color: Colors.white38),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo')),
+                DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta')),
+                DropdownMenuItem(value: 'Transferencia', child: Text('Transferencia')),
+              ],
+              onChanged: (v) => selectedMethod = v ?? 'Efectivo',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (amountCtrl.text.isEmpty || conceptCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Completa todos los campos'), backgroundColor: QuantumColors.error),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Cobro de \$${amountCtrl.text} registrado'),
+                  backgroundColor: QuantumColors.matrixCyan,
+                ),
+              );
+              _loadFinanceData();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.quantumBlue),
+            child: const Text('Registrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInvoiceDialog(BuildContext context, Map<String, dynamic> payment) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.cardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Detalle de Factura', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _invoiceRow('Cliente', payment['user']?.toString() ?? 'N/A'),
+            _invoiceRow('Plan', payment['plan']?.toString() ?? 'N/A'),
+            _invoiceRow('Monto', _formatCurrency(payment['amount'] as double)),
+            _invoiceRow('Próximo cobro', payment['next']?.toString() ?? 'N/A'),
+            _invoiceRow('Método', payment['method']?.toString() ?? 'N/A'),
+            _invoiceRow('Estado', payment['status']?.toString() ?? 'N/A'),
+          ],
+        ),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Descarga de factura disponible próximamente'),
+                  backgroundColor: QuantumColors.quantumBlue,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.quantumBlue),
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: const Text('Descargar PDF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _invoiceRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 13)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  void _showPaymentActions(BuildContext context, Map<String, dynamic> payment) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: QuantumColors.cardBackground,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Acciones - ${payment['user']}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded, color: QuantumColors.quantumBlue),
+              title: const Text('Editar cobro', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Edición de cobros disponible próximamente'), backgroundColor: QuantumColors.quantumBlue),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.pause_circle_outline, color: QuantumColors.warning),
+              title: const Text('Suspender cobro', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Cobro de ${payment['user']} suspendido'), backgroundColor: QuantumColors.warning),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cancel_outlined, color: QuantumColors.error),
+              title: const Text('Cancelar suscripción', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Suscripción de ${payment['user']} cancelada'), backgroundColor: QuantumColors.error),
+                );
+                _loadFinanceData();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

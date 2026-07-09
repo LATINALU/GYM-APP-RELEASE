@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
+import '../../../infrastructure/config/di.dart';
+import '../../../infrastructure/adapters/firebase/firebase_owner_member_repository.dart';
+import '../../theme/quantum_colors.dart';
 
 class OwnerMembersScreen extends StatefulWidget {
   const OwnerMembersScreen({super.key});
@@ -35,25 +37,19 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         throw Exception('No se pudo resolver el gimnasio actual');
       }
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('gyms')
-          .doc(gymId)
-          .collection('members')
-          .get();
+      final repo = getIt<FirebaseOwnerMemberRepository>();
+      final membersData = await repo.loadMembers(gymId);
 
-      final loaded = snapshot.docs.map((doc) {
-        final d = doc.data();
-        return _MemberData(
-          id: doc.id,
-          name: d['name'] ?? 'Sin nombre',
-          plan: d['plan'] ?? 'Sin plan',
-          expiry: d['expiry'] ?? '--',
-          status: d['status'] ?? 'Activos',
-          email: d['email'],
-          phone: d['phone'],
-          isFrozen: d['isFrozen'] ?? false,
-        );
-      }).toList();
+      final loaded = membersData.map((d) => _MemberData(
+        id: d['id'],
+        name: d['name'],
+        plan: d['plan'],
+        expiry: d['expiry'],
+        status: d['status'],
+        email: d['email'],
+        phone: d['phone'],
+        isFrozen: d['isFrozen'] ?? false,
+      )).toList();
 
       if (!mounted) return;
       setState(() {
@@ -79,22 +75,25 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0F),
+      backgroundColor: QuantumColors.cosmicBlack,
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF6C63FF), onPressed: _showAddMember,
+        backgroundColor: QuantumColors.holoPurple, onPressed: _showAddMember,
         icon: const Icon(Icons.person_add, color: Colors.white), label: const Text('Nuevo Miembro', style: TextStyle(color: Colors.white))),
-      body: CustomScrollView(slivers: [
-        const SliverAppBar(expandedHeight: 80, backgroundColor: Color(0xFF0A0A0F), pinned: true,
+      body: RefreshIndicator(
+        color: QuantumColors.holoPurple,
+        onRefresh: _loadMembersFromFirestore,
+        child: CustomScrollView(slivers: [
+        const SliverAppBar(expandedHeight: 80, backgroundColor: QuantumColors.cosmicBlack, pinned: true,
           flexibleSpace: FlexibleSpaceBar(title: Text('Miembros', style: TextStyle(fontWeight: FontWeight.w700)))),
         // Stats row
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-          _kpi('Total', '${_members.length}', Icons.people, const Color(0xFF6C63FF)),
+          _kpi('Total', '${_members.length}', Icons.people, QuantumColors.holoPurple),
           const SizedBox(width: 8),
-          _kpi('Activos', '${_members.where((m) => m.status == 'Activos').length}', Icons.check_circle, const Color(0xFF4ECDC4)),
+          _kpi('Activos', '${_members.where((m) => m.status == 'Activos').length}', Icons.check_circle, QuantumColors.matrixCyan),
           const SizedBox(width: 8),
-          _kpi('Vencidos', '${_members.where((m) => m.status == 'Vencidos').length}', Icons.error, const Color(0xFFFF6B6B)),
+          _kpi('Vencidos', '${_members.where((m) => m.status == 'Vencidos').length}', Icons.error, QuantumColors.error),
           const SizedBox(width: 8),
-          _kpi('Nuevos (30d)', '${_members.where((m) => m.status == 'Nuevos').length}', Icons.fiber_new, const Color(0xFFFFE66D)),
+          _kpi('Nuevos (30d)', '${_members.where((m) => m.status == 'Nuevos').length}', Icons.fiber_new, QuantumColors.warning),
         ]))),
         // Search
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -108,7 +107,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
           itemCount: _filters.length, itemBuilder: (_, i) {
             final f = _filters[i]; final sel = f == _filter;
             return Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(
-              label: Text(f), selected: sel, selectedColor: const Color(0xFF6C63FF),
+              label: Text(f), selected: sel, selectedColor: QuantumColors.holoPurple,
               backgroundColor: Colors.white.withValues(alpha: 0.05),
               labelStyle: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 12),
               onSelected: (_) => setState(() => _filter = f)));
@@ -117,7 +116,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         if (_isLoading)
           const SliverToBoxAdapter(child: Padding(
             padding: EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator(color: Color(0xFF6C63FF))),
+            child: Center(child: CircularProgressIndicator(color: QuantumColors.holoPurple)),
           )),
         if (!_isLoading && _loadError != null)
           SliverToBoxAdapter(
@@ -162,6 +161,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
           }, childCount: filtered.length)),
         const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
       ]),
+      ),
     );
   }
 
@@ -177,13 +177,13 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
   ));
 
   Widget _memberTile(_MemberData m) {
-    final statusColors = {'Activos': const Color(0xFF4ECDC4), 'Vencidos': const Color(0xFFFF6B6B),
-      'Próx. Vencer': const Color(0xFFFFE66D), 'Nuevos': const Color(0xFF6C63FF)};
+    final statusColors = {'Activos': QuantumColors.matrixCyan, 'Vencidos': QuantumColors.error,
+      'Próx. Vencer': QuantumColors.warning, 'Nuevos': QuantumColors.holoPurple};
     final c = statusColors[m.status] ?? Colors.white38;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: m.isFrozen ? const Color(0xFF12121A).withValues(alpha: 0.5) : const Color(0xFF12121A), 
+        color: m.isFrozen ? QuantumColors.voidGray.withValues(alpha: 0.5) : QuantumColors.voidGray, 
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: m.isFrozen ? Colors.blue.withValues(alpha: 0.12) : c.withValues(alpha: 0.08))),
       child: Row(children: [
@@ -216,7 +216,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         const SizedBox(width: 8),
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Colors.white24, size: 20),
-          color: const Color(0xFF1A1A2E),
+          color: QuantumColors.voidGray,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           onSelected: (action) => _handleMemberAction(action, m),
           itemBuilder: (_) => [
@@ -229,33 +229,33 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
             )),
             const PopupMenuItem(value: 'assign_routine', child: Row(
               children: [
-                Icon(Icons.fitness_center_rounded, color: Color(0xFF6C63FF), size: 18),
+                Icon(Icons.fitness_center_rounded, color: QuantumColors.holoPurple, size: 18),
                 SizedBox(width: 12),
-                Text('Asignar Rutina', style: TextStyle(color: Color(0xFF6C63FF))),
+                Text('Asignar Rutina', style: TextStyle(color: QuantumColors.holoPurple)),
               ],
             )),
             const PopupMenuItem(value: 'renew', child: Row(
               children: [
-                Icon(Icons.refresh_rounded, color: Color(0xFF4ECDC4), size: 18),
+                Icon(Icons.refresh_rounded, color: QuantumColors.matrixCyan, size: 18),
                 SizedBox(width: 12),
-                Text('Renovar', style: TextStyle(color: Color(0xFF4ECDC4))),
+                Text('Renovar', style: TextStyle(color: QuantumColors.matrixCyan)),
               ],
             )),
             PopupMenuItem(value: 'freeze', child: Row(
               children: [
                 Icon(m.isFrozen ? Icons.play_arrow_rounded : Icons.ac_unit_rounded, 
-                  color: const Color(0xFFFFE66D), size: 18),
+                  color: QuantumColors.warning, size: 18),
                 const SizedBox(width: 12),
                 Text(m.isFrozen ? 'Descongelar' : 'Congelar', 
-                  style: const TextStyle(color: Color(0xFFFFE66D))),
+                  style: const TextStyle(color: QuantumColors.warning)),
               ],
             )),
             const PopupMenuDivider(),
             const PopupMenuItem(value: 'delete', child: Row(
               children: [
-                Icon(Icons.delete_outline_rounded, color: Color(0xFFFF6B6B), size: 18),
+                Icon(Icons.delete_outline_rounded, color: QuantumColors.error, size: 18),
                 SizedBox(width: 12),
-                Text('Eliminar', style: TextStyle(color: Color(0xFFFF6B6B))),
+                Text('Eliminar', style: TextStyle(color: QuantumColors.error)),
               ],
             )),
           ],
@@ -288,7 +288,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 420,
@@ -298,8 +298,8 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
             children: [
               CircleAvatar(
                 radius: 40,
-                backgroundColor: const Color(0xFF6C63FF).withValues(alpha: 0.15),
-                child: Text(member.name[0], style: const TextStyle(color: Color(0xFF6C63FF), fontSize: 32, fontWeight: FontWeight.bold)),
+                backgroundColor: QuantumColors.holoPurple.withValues(alpha: 0.15),
+                child: Text(member.name[0], style: const TextStyle(color: QuantumColors.holoPurple, fontSize: 32, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 16),
               Text(member.name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
@@ -316,7 +316,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(ctx),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
+                    backgroundColor: QuantumColors.holoPurple,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -351,7 +351,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Renovar: ${member.name}', style: const TextStyle(color: Colors.white)),
         content: Column(
@@ -362,7 +362,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Plan', labelStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.card_membership, color: Color(0xFF6C63FF), size: 20),
+                prefixIcon: const Icon(Icons.card_membership, color: QuantumColors.holoPurple, size: 20),
                 filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
@@ -374,7 +374,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Meses a renovar', labelStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.calendar_month, color: Color(0xFF6C63FF), size: 20),
+                prefixIcon: const Icon(Icons.calendar_month, color: QuantumColors.holoPurple, size: 20),
                 filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
@@ -409,13 +409,13 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('✓ ${member.name} renovado hasta $formattedExpiry'),
-                  backgroundColor: const Color(0xFF4ECDC4),
+                  backgroundColor: QuantumColors.matrixCyan,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4ECDC4)),
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.matrixCyan),
             child: const Text('Renovar'),
           ),
         ],
@@ -428,7 +428,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           isFreezing ? '¿Congelar membresía?' : '¿Descongelar membresía?',
@@ -461,14 +461,14 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(isFreezing ? '❄ Membresía de ${member.name} congelada' : '☀ Membresía de ${member.name} descongelada'),
-                  backgroundColor: const Color(0xFFFFE66D).withValues(alpha: 0.9),
+                  backgroundColor: QuantumColors.warning.withValues(alpha: 0.9),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isFreezing ? Colors.blueAccent : const Color(0xFF4ECDC4),
+              backgroundColor: isFreezing ? Colors.blueAccent : QuantumColors.matrixCyan,
             ),
             child: Text(isFreezing ? 'Congelar' : 'Descongelar'),
           ),
@@ -481,7 +481,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('⚠ Eliminar Miembro', style: TextStyle(color: Colors.white)),
         content: Text(
@@ -505,7 +505,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${member.name} eliminado'),
-                  backgroundColor: const Color(0xFFFF6B6B),
+                  backgroundColor: QuantumColors.error,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   action: SnackBarAction(
@@ -518,7 +518,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6B6B)),
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.error),
             child: const Text('Eliminar'),
           ),
         ],
@@ -532,25 +532,21 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
       final gymId = auth.profile?.gymId?.value;
       if (gymId == null || member.id == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('gyms')
-          .doc(gymId)
-          .collection('members')
-          .doc(member.id)
-          .delete();
-    } catch (_) {}
+      await getIt<FirebaseOwnerMemberRepository>().deleteMember(gymId, member.id!);
+    } catch (e) { debugPrint('Error deleting member: $e'); }
   }
 
   Future<void> _logAudit(String action, String module) async {
     try {
       final auth = AuthStateNotifier.instance;
-      await FirebaseFirestore.instance.collection('audit_logs').add({
-        'who': auth.profile?.displayName ?? 'Owner',
-        'action': action,
-        'timestamp': FieldValue.serverTimestamp(),
-        'module': module,
-      });
-    } catch (_) {}
+      final gymId = auth.profile?.gymId?.value;
+      await getIt<FirebaseOwnerMemberRepository>().logAudit(
+        who: auth.profile?.displayName ?? 'Owner',
+        action: action,
+        module: module,
+        gymId: gymId,
+      );
+    } catch (e) { debugPrint('Error logging audit: $e'); }
   }
 
   void _showAddMember() {
@@ -561,7 +557,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
 
     showModalBottomSheet(
       context: context, 
-      backgroundColor: const Color(0xFF1A1A2E), 
+      backgroundColor: QuantumColors.voidGray, 
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
@@ -592,13 +588,13 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: DropdownButtonFormField<String>(
-                            value: selectedPlan,
-                dropdownColor: const Color(0xFF1A1A2E),
+                            initialValue: selectedPlan,
+                dropdownColor: QuantumColors.voidGray,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Plan',
                   labelStyle: const TextStyle(color: Colors.white38),
-                  prefixIcon: const Icon(Icons.card_membership, color: Color(0xFF6C63FF), size: 20),
+                  prefixIcon: const Icon(Icons.card_membership, color: QuantumColors.holoPurple, size: 20),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                 ),
                 items: const [
@@ -642,13 +638,13 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('✓ ${newMember.name} registrado exitosamente'),
-                    backgroundColor: const Color(0xFF4ECDC4),
+                    backgroundColor: QuantumColors.matrixCyan,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF),
+              style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.holoPurple,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
               child: const Text('Registrar Miembro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)))),
           ]),
@@ -663,11 +659,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
       final gymId = auth.profile?.gymId?.value;
       if (gymId == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('gyms')
-          .doc(gymId)
-          .collection('members')
-          .add({
+      await getIt<FirebaseOwnerMemberRepository>().saveMember(gymId, {
         'name': member.name,
         'plan': member.plan,
         'expiry': member.expiry,
@@ -675,9 +667,8 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         'email': member.email,
         'phone': member.phone,
         'isFrozen': member.isFrozen,
-        'registeredAt': FieldValue.serverTimestamp(),
       });
-    } catch (_) {}
+    } catch (e) { debugPrint('Error saving member: $e'); }
   }
 
   Widget _inputField(String label, IconData ic, TextEditingController controller) {
@@ -686,7 +677,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label, labelStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(ic, color: const Color(0xFF6C63FF), size: 20), filled: true,
+        prefixIcon: Icon(ic, color: QuantumColors.holoPurple, size: 20), filled: true,
         fillColor: Colors.white.withValues(alpha: 0.05),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
@@ -704,20 +695,16 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
       return;
     }
 
-    // Fetch available routines from Firestore
-    final routinesSnapshot = await FirebaseFirestore.instance
-        .collection('routines')
-        .where('gymId', isEqualTo: gymId)
-        .where('isActive', isEqualTo: true)
-        .get();
+    // Fetch available routines from repository
+    final routines = await getIt<FirebaseOwnerMemberRepository>().loadActiveRoutines(gymId);
 
     if (!mounted) return;
 
-    if (routinesSnapshot.docs.isEmpty) {
+    if (routines.isEmpty) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: QuantumColors.voidGray,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Sin rutinas disponibles', style: TextStyle(color: Colors.white)),
           content: const Text(
@@ -727,7 +714,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Entendido', style: TextStyle(color: Color(0xFF6C63FF))),
+              child: const Text('Entendido', style: TextStyle(color: QuantumColors.holoPurple)),
             ),
           ],
         ),
@@ -735,21 +722,10 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
       return;
     }
 
-    final routines = routinesSnapshot.docs.map((doc) {
-      final data = doc.data();
-      return {
-        'id': doc.id,
-        'name': data['name'] ?? 'Sin nombre',
-        'difficulty': data['difficulty'] ?? 'intermediate',
-        'focus': data['focus'] ?? 'general',
-        'exerciseCount': (data['exercises'] as List?)?.length ?? 0,
-      };
-    }).toList();
-
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: 500,
@@ -790,16 +766,16 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.2)),
+                        border: Border.all(color: QuantumColors.holoPurple.withValues(alpha: 0.2)),
                       ),
                       child: ListTile(
                         leading: Container(
                           width: 40, height: 40,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                            color: QuantumColors.holoPurple.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.fitness_center, color: Color(0xFF6C63FF), size: 20),
+                          child: const Icon(Icons.fitness_center, color: QuantumColors.holoPurple, size: 20),
                         ),
                         title: Text(routine['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                         subtitle: Text(
@@ -831,7 +807,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: QuantumColors.voidGray,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Confirmar Asignación', style: TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
@@ -839,7 +815,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Rutina: ${routine['name']}', style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold)),
+              Text('Rutina: ${routine['name']}', style: const TextStyle(color: QuantumColors.holoPurple, fontWeight: FontWeight.bold)),
               Text('Cliente: ${member.name}', style: const TextStyle(color: Colors.white70)),
               const SizedBox(height: 16),
               TextField(
@@ -891,7 +867,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
               Navigator.pop(ctx);
               await _assignRoutineToClient(member, routine, startDateCtrl.text, endDateCtrl.text, notesCtrl.text);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.holoPurple),
             child: const Text('Asignar'),
           ),
         ],
@@ -923,17 +899,15 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         throw Exception('La fecha de fin no es válida');
       }
 
-      await FirebaseFirestore.instance.collection('assignments').add({
-        'routineId': routine['id'],
-        'clientId': member.id,
-        'assignedById': assignerId,
-        'assignedAt': DateTime.now().toIso8601String(),
-        'startDate': parsedStartDate.toIso8601String(),
-        'endDate': parsedEndDate?.toIso8601String(),
-        'notes': notes.isNotEmpty ? notes : null,
-        'status': 'active',
-        'gymId': gymId,
-      });
+      await getIt<FirebaseOwnerMemberRepository>().createAssignment(
+        gymId: gymId,
+        routineId: routine['id'],
+        clientId: member.id!,
+        assignedById: assignerId,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
+        notes: notes.isNotEmpty ? notes : null,
+      );
 
       _logAudit('Asignó rutina "${routine['name']}" a ${member.name}', 'RUTINAS');
 
@@ -941,7 +915,7 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('✓ Rutina "${routine['name']}" asignada a ${member.name}'),
-            backgroundColor: const Color(0xFF4ECDC4),
+            backgroundColor: QuantumColors.matrixCyan,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),

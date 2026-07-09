@@ -5,6 +5,7 @@ import '../../../domain/entities/entities.dart';
 import '../../../domain/data/exercise_gifs.dart';
 import '../../../domain/value_objects/value_objects.dart'; // Import para UserId
 import 'routine_editor_page.dart';
+import '../../theme/quantum_colors.dart';
 
 /// Página principal de gestión de rutinas para Admin/Empleados
 class RoutineManagementPage extends StatelessWidget {
@@ -16,9 +17,9 @@ class RoutineManagementPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111827),
+      backgroundColor: QuantumColors.cosmicBlack,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F2937),
+        backgroundColor: QuantumColors.voidGray,
         leading:
             onBack != null
                 ? IconButton(
@@ -79,7 +80,7 @@ class RoutineManagementPage extends StatelessWidget {
         builder: (context, state) {
           if (state is RoutineLoading) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+              child: CircularProgressIndicator(color: QuantumColors.holoPurple),
             );
           }
 
@@ -94,7 +95,7 @@ class RoutineManagementPage extends StatelessWidget {
           // Initial state - load routines
           context.read<RoutineBloc>().add(LoadRoutines());
           return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+            child: CircularProgressIndicator(color: QuantumColors.holoPurple),
           );
         },
       ),
@@ -105,7 +106,7 @@ class RoutineManagementPage extends StatelessWidget {
               onPressed: () {
                 context.read<RoutineBloc>().add(StartCreatingRoutine());
               },
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: QuantumColors.holoPurple,
               icon: const Icon(Icons.add),
               label: const Text('Nueva Rutina'),
             );
@@ -144,8 +145,8 @@ class RoutineManagementPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFF1F2937),
-        border: Border(bottom: BorderSide(color: Color(0xFF374151))),
+        color: QuantumColors.voidGray,
+        border: Border(bottom: BorderSide(color: QuantumColors.elevatedGray)),
       ),
       child: Row(
         children: [
@@ -163,12 +164,12 @@ class RoutineManagementPage extends StatelessWidget {
                     FilterRoutinesByDifficulty(selected ? level : null),
                   );
                 },
-                selectedColor: const Color(0xFF6366F1),
+                selectedColor: QuantumColors.holoPurple,
                 checkmarkColor: Colors.white,
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : Colors.white70,
                 ),
-                backgroundColor: const Color(0xFF374151),
+                backgroundColor: QuantumColors.elevatedGray,
               ),
             );
           }),
@@ -180,7 +181,7 @@ class RoutineManagementPage extends StatelessWidget {
   Widget _buildRoutineCard(BuildContext context, WorkoutRoutine routine) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: const Color(0xFF1F2937),
+      color: QuantumColors.voidGray,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
@@ -234,7 +235,7 @@ class RoutineManagementPage extends StatelessWidget {
                   ),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, color: Colors.white54),
-                    color: const Color(0xFF374151),
+                    color: QuantumColors.elevatedGray,
                     onSelected: (value) {
                       _handleMenuAction(context, value, routine);
                     },
@@ -325,7 +326,7 @@ class RoutineManagementPage extends StatelessWidget {
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
-                          color: const Color(0xFF374151),
+                          color: QuantumColors.elevatedGray,
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
@@ -358,7 +359,7 @@ class RoutineManagementPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF374151),
+        color: QuantumColors.elevatedGray,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -383,13 +384,13 @@ class RoutineManagementPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2937),
+              color: QuantumColors.voidGray,
               borderRadius: BorderRadius.circular(100),
             ),
             child: const Icon(
               Icons.fitness_center,
               size: 64,
-              color: Color(0xFF6366F1),
+              color: QuantumColors.holoPurple,
             ),
           ),
           const SizedBox(height: 24),
@@ -412,7 +413,7 @@ class RoutineManagementPage extends StatelessWidget {
               context.read<RoutineBloc>().add(StartCreatingRoutine());
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: QuantumColors.holoPurple,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             icon: const Icon(Icons.add),
@@ -447,7 +448,7 @@ class RoutineManagementPage extends StatelessWidget {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1F2937),
+            backgroundColor: QuantumColors.voidGray,
             title: const Text(
               'Duplicar Rutina',
               style: TextStyle(color: Colors.white),
@@ -462,7 +463,7 @@ class RoutineManagementPage extends StatelessWidget {
                   borderSide: BorderSide(color: Colors.white24),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFF6366F1)),
+                  borderSide: BorderSide(color: QuantumColors.holoPurple),
                 ),
               ),
             ),
@@ -484,7 +485,7 @@ class RoutineManagementPage extends StatelessWidget {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
+                  backgroundColor: QuantumColors.holoPurple,
                 ),
                 child: const Text('Duplicar'),
               ),
@@ -498,7 +499,7 @@ class RoutineManagementPage extends StatelessWidget {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1F2937),
+            backgroundColor: QuantumColors.voidGray,
             title: const Text(
               'Eliminar Rutina',
               style: TextStyle(color: Colors.white),
@@ -531,11 +532,11 @@ class RoutineManagementPage extends StatelessWidget {
   Color _getDifficultyColor(DifficultyLevel level) {
     switch (level) {
       case DifficultyLevel.beginner:
-        return const Color(0xFF10B981);
+        return QuantumColors.matrixCyan;
       case DifficultyLevel.intermediate:
-        return const Color(0xFFF59E0B);
+        return QuantumColors.warning;
       case DifficultyLevel.advanced:
-        return const Color(0xFFEF4444);
+        return QuantumColors.error;
     }
   }
 
@@ -614,7 +615,7 @@ class _RoutineSearchDelegate extends SearchDelegate<WorkoutRoutine?> {
       itemBuilder: (context, index) {
         final routine = filtered[index];
         return ListTile(
-          leading: const Icon(Icons.fitness_center, color: Color(0xFF6366F1)),
+          leading: const Icon(Icons.fitness_center, color: QuantumColors.holoPurple),
           title: Text(routine.name),
           subtitle: Text(routine.difficulty.displayName),
           onTap: () => close(context, routine),

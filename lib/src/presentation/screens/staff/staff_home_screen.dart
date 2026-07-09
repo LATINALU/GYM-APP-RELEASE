@@ -5,10 +5,74 @@ import '../../../../core/auth/auth_state_notifier.dart';
 import '../../theme/theme.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../../domain/entities/entities.dart';
+import '../../../domain/ports/output/check_in_repository_port.dart';
+import '../../../domain/ports/output/user_repository_port.dart';
+import '../../../domain/value_objects/value_objects.dart';
+import '../../../infrastructure/config/di.dart';
 
 /// Staff Home Screen - Main hub for gym employees/trainers
-class StaffHomeScreen extends StatelessWidget {
+class StaffHomeScreen extends StatefulWidget {
   const StaffHomeScreen({super.key});
+
+  @override
+  State<StaffHomeScreen> createState() => _StaffHomeScreenState();
+}
+
+class _StaffHomeScreenState extends State<StaffHomeScreen> {
+  List<CheckIn> _todayCheckIns = [];
+  int _activeClients = 0;
+  bool _isLoadingStats = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _isLoadingStats = true);
+
+    try {
+      final checkInRepo = getIt<CheckInRepositoryPort>();
+      final result = await checkInRepo.findToday();
+
+      result.fold(
+        (_) => null,
+        (checkIns) {
+          if (mounted) {
+            setState(() {
+              _todayCheckIns = checkIns;
+              _isLoadingStats = false;
+            });
+          }
+        },
+      );
+
+      // Load active clients count
+      final auth = AuthStateNotifier.instance;
+      final gymId = auth.profile?.gymId;
+      if (gymId != null) {
+        final userRepo = getIt<UserRepositoryPort>();
+        final clientsResult = await userRepo.findByRole(
+          gymId: gymId,
+          role: const GymRole.client(),
+        );
+        clientsResult.fold(
+          (_) => null,
+          (clients) {
+            if (mounted) {
+              setState(() {
+                _activeClients = clients.where((c) =>
+                  c.membershipStatus == MembershipStatus.approved).length;
+              });
+            }
+          },
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingStats = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,22 +86,18 @@ class StaffHomeScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: QuantumColors.backgroundStart,
           body: SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(child: _buildHeader(context, user)),
-                SliverToBoxAdapter(child: _buildQuickActions(context)),
-                SliverToBoxAdapter(child: _buildTodayStats(context)),
-                SliverToBoxAdapter(child: _buildRecentCheckIns(context)),
-              ],
+            child: RefreshIndicator(
+              onRefresh: _loadStats,
+              color: QuantumColors.primary,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHeader(context, user)),
+                  SliverToBoxAdapter(child: _buildQuickActions(context)),
+                  SliverToBoxAdapter(child: _buildTodayStats(context)),
+                  SliverToBoxAdapter(child: _buildRecentCheckIns(context)),
+                ],
+              ),
             ),
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () {
-              context.go('/staff/qr-scanner');
-            },
-            backgroundColor: QuantumColors.primary,
-            icon: const Icon(Icons.qr_code_scanner),
-            label: const Text('Escanear QR'),
           ),
         );
       },
@@ -77,9 +137,10 @@ class StaffHomeScreen extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () => context.push('/client/notifications'),
             icon: const Icon(Icons.notifications_outlined),
             color: Colors.white70,
+            tooltip: 'Notificaciones',
           ),
           IconButton(
             onPressed: () async {
@@ -115,7 +176,7 @@ class StaffHomeScreen extends StatelessWidget {
             icon: Icons.fitness_center,
             label: 'Asignar Rutina',
             color: QuantumColors.success,
-            onTap: () {},
+            onTap: () => context.go('/staff/routine-management'),
           ),
           const SizedBox(width: 12),
           _buildActionCard(
@@ -123,7 +184,7 @@ class StaffHomeScreen extends StatelessWidget {
             icon: Icons.people,
             label: 'Clientes',
             color: QuantumColors.accent,
-            onTap: () {},
+            onTap: () => _showClientList(context),
           ),
         ],
       ),
@@ -180,11 +241,11 @@ class StaffHomeScreen extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildStatCard('Check-ins', '24', Icons.login, QuantumColors.success),
+              _buildStatCard('Check-ins', '${_todayCheckIns.length}', Icons.login, QuantumColors.success),
               const SizedBox(width: 12),
-              _buildStatCard('Rutinas', '8', Icons.fitness_center, QuantumColors.primary),
+              _buildStatCard('Activos', '$_activeClients', Icons.people, QuantumColors.accent),
               const SizedBox(width: 12),
-              _buildStatCard('Activos', '15', Icons.people, QuantumColors.accent),
+              _buildStatCard('En gym', '${_todayCheckIns.where((c) => c.isActive).length}', Icons.timer, QuantumColors.primary),
             ],
           ),
         ],
@@ -220,6 +281,8 @@ class StaffHomeScreen extends StatelessWidget {
   }
 
   Widget _buildRecentCheckIns(BuildContext context) {
+    final recent = _todayCheckIns.take(5).toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -233,51 +296,146 @@ class StaffHomeScreen extends StatelessWidget {
                 style: QuantumTypography.h3.copyWith(color: Colors.white),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () => context.push('/owner/access-console'),
                 child: const Text('Ver todos', style: TextStyle(color: QuantumColors.primary)),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: QuantumColors.cardBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          if (_isLoadingStats)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator(color: QuantumColors.primary)),
+            )
+          else if (recent.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: QuantumColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: const Center(
+                child: Text('Sin check-ins hoy', style: TextStyle(color: Colors.white38)),
+              ),
+            )
+          else
+            Container(
+              decoration: BoxDecoration(
+                color: QuantumColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Column(
+                children: [
+                  for (int i = 0; i < recent.length; i++) ...[
+                    _buildCheckInItem(context, recent[i]),
+                    if (i < recent.length - 1)
+                      const Divider(color: Colors.white10, height: 1),
+                  ],
+                ],
+              ),
             ),
-            child: Column(
-              children: [
-                _buildCheckInItem('María García', '08:30 AM', true),
-                const Divider(color: Colors.white10, height: 1),
-                _buildCheckInItem('Carlos López', '09:15 AM', true),
-                const Divider(color: Colors.white10, height: 1),
-                _buildCheckInItem('Ana Martínez', '09:45 AM', false),
-              ],
-            ),
-          ),
-          const SizedBox(height: 100), // Space for FAB
+          const SizedBox(height: 120), // Space for bottom nav
         ],
       ),
     );
   }
 
-  Widget _buildCheckInItem(String name, String time, bool hasRoutine) {
+  Widget _buildCheckInItem(BuildContext context, CheckIn checkIn) {
+    final timeStr = '${checkIn.checkInTime.hour.toString().padLeft(2, '0')}:${checkIn.checkInTime.minute.toString().padLeft(2, '0')}';
+    final isActive = checkIn.isActive;
+
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: QuantumColors.primary.withValues(alpha: 0.2),
         child: Text(
-          name[0],
+          checkIn.clientId.value.isNotEmpty ? checkIn.clientId.value[0].toUpperCase() : '?',
           style: const TextStyle(color: QuantumColors.primary),
         ),
       ),
-      title: Text(name, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(time, style: const TextStyle(color: Colors.white54)),
-      trailing: hasRoutine
-          ? const Icon(Icons.check_circle, color: QuantumColors.success)
+      title: Text(checkIn.clientId.value, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(timeStr, style: const TextStyle(color: Colors.white54)),
+      trailing: isActive
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: QuantumColors.success.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('En gym', style: TextStyle(color: QuantumColors.success, fontSize: 11)),
+            )
           : TextButton(
-              onPressed: () {},
+              onPressed: () => context.go('/staff/routine-management'),
               child: const Text('Asignar'),
             ),
+    );
+  }
+
+  Future<void> _showClientList(BuildContext context) async {
+    final auth = AuthStateNotifier.instance;
+    final gymId = auth.profile?.gymId;
+    if (gymId == null) return;
+
+    final userRepo = getIt<UserRepositoryPort>();
+    final result = await userRepo.findByRole(
+      gymId: gymId,
+      role: const GymRole.client(),
+    );
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${failure.message}'), backgroundColor: QuantumColors.error),
+      ),
+      (clients) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: QuantumColors.cardBackground,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text('Clientes (${clients.length})', style: const TextStyle(color: Colors.white)),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: clients.isEmpty
+                ? const Text('No hay clientes registrados', style: TextStyle(color: Colors.white54))
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: clients.length,
+                    itemBuilder: (_, i) {
+                      final c = clients[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: QuantumColors.accent.withValues(alpha: 0.2),
+                          child: Text(c.name.firstName[0], style: const TextStyle(color: QuantumColors.accent)),
+                        ),
+                        title: Text(c.name.fullName, style: const TextStyle(color: Colors.white)),
+                        subtitle: Text(
+                          c.membershipStatus == MembershipStatus.approved ? 'Activo' : 'Pendiente',
+                          style: TextStyle(color: c.membershipStatus == MembershipStatus.approved ? QuantumColors.success : QuantumColors.warning, fontSize: 12),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.fitness_center, color: QuantumColors.primary, size: 20),
+                          tooltip: 'Asignar rutina',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            context.go('/staff/routine-management');
+                          },
+                        ),
+                      );
+                    },
+                  ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar', style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

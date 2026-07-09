@@ -19,10 +19,10 @@ class _PosSalesScreenState extends State<PosSalesScreen> {
   String _paymentMethod = 'cash';
 
   double get _subtotal {
-    return _cart.entries.fold(0.0, (sum, entry) {
+    return _cart.entries.fold(0.0, (acc, entry) {
       final product = _products[entry.key];
-      if (product == null) return sum;
-      return sum + (product.price * entry.value);
+      if (product == null) return acc;
+      return acc + (product.price * entry.value);
     });
   }
 
@@ -303,7 +303,7 @@ class _PosSalesScreenState extends State<PosSalesScreen> {
           _buildSummaryRow('TOTAL', _total, isTotal: true),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _paymentMethod,
+            initialValue: _paymentMethod,
             dropdownColor: const Color(0xFF1A1A2E),
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(

@@ -369,7 +369,7 @@ class _ProgramBuilderScreenState extends State<ProgramBuilderScreen> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedType,
+                    initialValue: selectedType,
                     dropdownColor: const Color(0xFF1A1A2E),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(

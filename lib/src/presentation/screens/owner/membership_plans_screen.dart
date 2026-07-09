@@ -334,7 +334,7 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
       decoration: BoxDecoration(
         color: QuantumColors.surface(),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(plan.isActive ? 0.2 : 0.05)),
+        border: Border.all(color: color.withValues(alpha: plan.isActive ? 0.2 : 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

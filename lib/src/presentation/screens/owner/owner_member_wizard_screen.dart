@@ -21,7 +21,6 @@ class _OwnerMemberWizardScreenState extends State<OwnerMemberWizardScreen> {
   final _dniController = TextEditingController();
   String? _selectedPlan;
   bool _isPayingNow = true;
-  bool _isScanning = false;
   bool _isLoadingPlans = true;
   String? _plansLoadError;
   List<_WizardPlan> _plans = [];
@@ -271,14 +270,14 @@ class _OwnerMemberWizardScreenState extends State<OwnerMemberWizardScreen> {
         children: [
           const Icon(Icons.info_outline, color: GymColors.primary),
           const SizedBox(width: 16),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Escaneo OCR no disponible', 
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 Text('Ingresa los datos manualmente hasta conectar esta integración.', 
-                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
               ],
             ),
           ),
@@ -417,7 +416,7 @@ class _OwnerMemberWizardScreenState extends State<OwnerMemberWizardScreen> {
         SwitchListTile(
           title: const Text('Realizar cobro ahora (Stripe/Efectivo)', style: TextStyle(color: Colors.white)),
           value: _isPayingNow,
-          activeColor: GymColors.primary,
+          activeThumbColor: GymColors.primary,
           onChanged: (v) => setState(() => _isPayingNow = v),
         ),
       ],

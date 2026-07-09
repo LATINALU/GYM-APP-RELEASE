@@ -631,12 +631,356 @@ service cloud.firestore {
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // GLOBAL AUDIT LOGS (used by routine_builder, owner_members, etc.)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /audit_logs/{logId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+      allow update, delete: if false;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MANUAL WORKOUT LOGS (client self-logging)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /manual_logs/{logId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        ) ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EXERCISES (global library, read for all authenticated, write for staff)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /exercises/{exerciseId} {
+      allow read: if isAuth();
+      allow create, update: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NUTRITION PLANS (gym-scoped, staff-managed)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /nutrition_plans/{planId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          (isStaffOfGym(resource.data.gymId) || isMemberOfGym(resource.data.gymId))
+        )
+      );
+      allow create, update: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BODY MEASUREMENTS (client self-tracking)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /body_measurements/{measurementId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        ) ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // RECOVERY LOGS (client self-tracking)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /recovery_logs/{logId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        ) ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SOCIAL POSTS (gym-scoped community feed)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /social_posts/{postId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          request.resource.data.userId == uid() &&
+          hasGymRole(request.resource.data.gymId)
+        )
+      );
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        ) ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GYM CLASSES (group classes, gym-scoped)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /gym_classes/{classId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create, update: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NOTIFICATIONS (user-scoped)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /notifications/{notificationId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // LOYALTY PROGRAMS (gym-scoped, owner-managed)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /loyalty_programs/{programId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create, update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // POS PRODUCTS (gym-scoped inventory)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /pos_products/{productId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create, update: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isStaffOfGym(request.resource.data.gymId)
+        )
+      );
+      allow delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MEMBERSHIP PLANS (gym-scoped, owner-managed)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /membership_plans/{planId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create, update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GYM-SCOPED MEMBERS SUBCOLLECTION (used by owner_members_screen)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /gyms/{gymId}/members/{memberId} {
+      allow read: if isStaffOfGym(gymId) || isAdmin();
+      allow create: if (isStaffOfGym(gymId) || isAdmin()) &&
+        requestGymMatches(gymId);
+      allow update: if (isStaffOfGym(gymId) || isAdmin()) &&
+        requestGymMatches(gymId);
+      allow delete: if (isOwnerOfGym(gymId) || isAdmin());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // GLOBAL PENDING REGISTRATIONS
     // ═══════════════════════════════════════════════════════════════════
 
     match /pending_registrations/{registrationId} {
-      // Users can read their own registrations
-      // Admins can read all
       allow read: if isAuth() && (
         resource.data.userId == uid() ||
         isAdmin() ||
@@ -645,8 +989,6 @@ service cloud.firestore {
           isStaffOfGym(resource.data.targetGymId)
         )
       );
-      
-      // Authenticated users can create registrations
       allow create: if isAuth() &&
         request.resource.data.userId == uid() &&
         (
@@ -654,8 +996,6 @@ service cloud.firestore {
           request.resource.data.targetGymId == null ||
           exists(/databases/$(database)/documents/gyms/$(request.resource.data.targetGymId))
         );
-      
-      // Users can cancel their own, admins can update any
       allow update: if isAuth() && (
         resource.data.userId == uid() ||
         isAdmin() ||
@@ -664,7 +1004,6 @@ service cloud.firestore {
           isStaffOfGym(resource.data.targetGymId)
         )
       );
-      
       allow delete: if isAdmin();
     }
 
@@ -706,6 +1045,14 @@ service cloud.firestore {
         resource.data.gymId is string &&
         isOwnerOfGym(resource.data.gymId)
       );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CATCH-ALL: Deny everything else by default
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

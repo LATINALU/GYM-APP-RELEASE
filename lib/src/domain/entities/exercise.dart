@@ -153,7 +153,7 @@ class Exercise extends Equatable {
   }) {
     return Exercise._(
       id: ExerciseId.generate(),
-      name: template.spanishName ?? template.name,
+      name: template.spanishName.isNotEmpty ? template.spanishName : template.name,
       description: template.description,
       instructions: null,
       imageUrl: null,

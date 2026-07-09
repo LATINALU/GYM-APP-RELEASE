@@ -290,21 +290,26 @@ class AppRouter {
         builder: (context, state) => const OwnerMemberWizardScreen(),
       ),
 
-      // Staff Routes
-      GoRoute(
-        path: '/staff/home',
-        name: 'staffHome',
-        builder: (context, state) => const StaffHomeScreen(),
-      ),
-      GoRoute(
-        path: '/staff/qr-scanner',
-        name: 'staffQrScanner',
-        builder: (context, state) => const StaffQrScannerScreen(),
-      ),
-      GoRoute(
-        path: '/staff/routine-management',
-        name: 'staffRoutineManagement',
-        builder: (context, state) => const RoutineManagementScreen(),
+      // Staff Routes (with bottom navigation shell)
+      ShellRoute(
+        builder: (context, state, child) => StaffMainLayout(child: child),
+        routes: [
+          GoRoute(
+            path: '/staff/home',
+            name: 'staffHome',
+            builder: (context, state) => const StaffHomeScreen(),
+          ),
+          GoRoute(
+            path: '/staff/qr-scanner',
+            name: 'staffQrScanner',
+            builder: (context, state) => const StaffQrScannerScreen(),
+          ),
+          GoRoute(
+            path: '/staff/routine-management',
+            name: 'staffRoutineManagement',
+            builder: (context, state) => const RoutineManagementScreen(),
+          ),
+        ],
       ),
 
       // Client Routes (Mobile Optimized Shell)

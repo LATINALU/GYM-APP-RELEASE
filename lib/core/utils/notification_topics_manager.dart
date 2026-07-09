@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../src/domain/value_objects/value_objects.dart';
 
 /// Helper to manage FCM topic subscriptions based on roles and gyms
@@ -10,7 +11,7 @@ class NotificationTopicsManager {
     required String userId,
     required GymRoleType role,
   }) async {
-    print('Subscribing to topics for $userId in gym $gymId (Role: $role)');
+    debugPrint('Subscribing to topics for $userId in gym $gymId (Role: $role)');
     // if (role == GymRoleType.owner || role == GymRoleType.employee) {
     //   await _messaging.subscribeToTopic('gym_${gymId}_staff');
     // }
@@ -23,6 +24,6 @@ class NotificationTopicsManager {
     required String userId,
     required GymRoleType role,
   }) async {
-    print('Unsubscribing from topics for $userId');
+    debugPrint('Unsubscribing from topics for $userId');
   }
 }

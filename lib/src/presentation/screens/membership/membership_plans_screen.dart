@@ -1,8 +1,11 @@
 /// Membership Plans Screen - Selección de membresía con comparación
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../../theme/theme.dart';
 import '../../../domain/entities/membership.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 
 class MembershipPlansScreen extends StatefulWidget {
   final bool isUpgrade;
@@ -23,15 +26,139 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
   BillingCycle _selectedCycle = BillingCycle.monthly;
   MembershipPlan? _selectedPlan;
   bool _showComparison = false;
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
     _plans = const [];
+    _loadPlansFromFirestore();
+  }
+
+  Future<void> _loadPlansFromFirestore() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    try {
+      final auth = AuthStateNotifier.instance;
+      final gymId = auth.profile?.gymId?.value;
+      final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
+
+      if (gymId == null || currentUid == null) {
+        setState(() {
+          _isLoading = false;
+          _loadError = 'No se pudo determinar el gimnasio. Inicia sesión nuevamente.';
+        });
+        return;
+      }
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('membership_plans')
+          .where('gymId', isEqualTo: gymId)
+          .where('isActive', isEqualTo: true)
+          .get();
+
+      final plans = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return MembershipPlan(
+          id: doc.id,
+          name: data['name'] ?? 'Plan',
+          description: data['description'] ?? '',
+          tier: MembershipTier.values.firstWhere(
+            (t) => t.name == (data['tier'] ?? 'basic'),
+            orElse: () => MembershipTier.basic,
+          ),
+          monthlyPrice: (data['monthlyPrice'] ?? 0).toDouble(),
+          features: List<String>.from(data['features'] ?? []),
+          restrictions: List<String>.from(data['restrictions'] ?? []),
+          maxClassBookingsPerMonth: data['maxClassBookingsPerMonth'] ?? 0,
+          maxGuestPassesPerMonth: data['maxGuestPassesPerMonth'] ?? 0,
+          includesLocker: data['includesLocker'] ?? false,
+          includesTowelService: data['includesTowelService'] ?? false,
+          includesPersonalTrainer: data['includesPersonalTrainer'] ?? false,
+          personalTrainerSessionsPerMonth: data['personalTrainerSessionsPerMonth'] ?? 0,
+          accessSchedule: data['accessSchedule']?.toString(),
+          isActive: data['isActive'] ?? true,
+          isPopular: data['isPopular'] ?? false,
+        );
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _plans = plans;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Error al cargar planes: $e';
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: QuantumColors.cosmicBlack,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            widget.isUpgrade ? 'Mejorar Plan' : 'Elige tu Membresía',
+            style: QuantumTypography.h3.copyWith(color: Colors.white),
+          ),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: QuantumColors.quantumBlue),
+        ),
+      );
+    }
+
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: QuantumColors.cosmicBlack,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            widget.isUpgrade ? 'Mejorar Plan' : 'Elige tu Membresía',
+            style: QuantumTypography.h3.copyWith(color: Colors.white),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: QuantumColors.error),
+                const SizedBox(height: 16),
+                Text(
+                  _loadError!,
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _loadPlansFromFirestore,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Reintentar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: QuantumColors.quantumBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_plans.isEmpty) {
       return Scaffold(
         backgroundColor: QuantumColors.cosmicBlack,
@@ -163,7 +290,7 @@ class _MembershipPlansScreenState extends State<MembershipPlansScreen> {
                         margin: const EdgeInsets.only(top: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(isSelected ? 0.3 : 0.2),
+                          color: Colors.green.withValues(alpha: isSelected ? 0.3 : 0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -1030,7 +1157,7 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
           Switch(
             value: _autoRenew,
             onChanged: (value) => setState(() => _autoRenew = value),
-            activeColor: QuantumColors.quantumBlue,
+            activeThumbColor: QuantumColors.quantumBlue,
           ),
         ],
       ),
@@ -1151,22 +1278,95 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
     );
   }
 
-  void _applyPromoCode() {
-    // Mock promo code validation
-    if (_promoCode?.toUpperCase() == 'WELCOME10') {
-      setState(() {
-        _discount = subtotal * 0.10;
-      });
+  void _applyPromoCode() async {
+    final code = _promoCode?.trim().toUpperCase();
+    if (code == null || code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('¡Código aplicado! 10% de descuento'),
+          content: Text('Ingresa un código promocional'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('promo_codes')
+          .where('code', isEqualTo: code)
+          .where('isActive', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        if (!mounted) return;
+        setState(() => _discount = 0);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Código inválido o expirado'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final doc = query.docs.first.data();
+      final expiresAt = doc['expiresAt'] as String?;
+      if (expiresAt != null) {
+        final expiry = DateTime.tryParse(expiresAt);
+        if (expiry != null && expiry.isBefore(DateTime.now())) {
+          if (!mounted) return;
+          setState(() => _discount = 0);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Código expirado'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
+      final maxUses = doc['maxUses'] as int?;
+      final usedCount = doc['usedCount'] as int? ?? 0;
+      if (maxUses != null && usedCount >= maxUses) {
+        if (!mounted) return;
+        setState(() => _discount = 0);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Código ha alcanzado el límite de usos'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final discountPercent = (doc['discountPercent'] as num?)?.toDouble() ?? 0;
+      final discountAmount = (doc['discountAmount'] as num?)?.toDouble() ?? 0;
+
+      if (!mounted) return;
+      setState(() {
+        if (discountPercent > 0) {
+          _discount = subtotal * (discountPercent / 100);
+        } else {
+          _discount = discountAmount;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '¡Código aplicado! ${discountPercent > 0 ? '${discountPercent.toInt()}% de descuento' : '\$${_discount.toStringAsFixed(2)} de descuento'}',
+          ),
           backgroundColor: Colors.green,
         ),
       );
-    } else {
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _discount = 0);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Código inválido'),
+        SnackBar(
+          content: Text('Error al validar código: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1175,70 +1375,116 @@ class _MembershipCheckoutScreenState extends State<MembershipCheckoutScreen> {
 
   void _processPayment() async {
     setState(() => _isProcessing = true);
-    
-    // Simulate payment processing
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() => _isProcessing = false);
-    
-    // Show success dialog
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: QuantumColors.cardBackground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
+
+    try {
+      final auth = AuthStateNotifier.instance;
+      final gymId = auth.profile?.gymId?.value;
+      final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
+
+      if (gymId == null || currentUid == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: no se pudo identificar al usuario.'),
+              backgroundColor: QuantumColors.error,
+            ),
+          );
+        }
+        setState(() => _isProcessing = false);
+        return;
+      }
+
+      final now = DateTime.now();
+      final endDate = now.add(Duration(days: widget.billingCycle.durationDays));
+
+      await FirebaseFirestore.instance.collection('subscriptions').add({
+        'userId': currentUid,
+        'gymId': gymId,
+        'planId': widget.plan.id,
+        'planName': widget.plan.name,
+        'tier': widget.plan.tier.name,
+        'billingCycle': widget.billingCycle.name,
+        'status': 'active',
+        'startDate': now.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'amount': total,
+        'paymentMethod': _selectedPaymentMethod.name,
+        'autoRenew': _autoRenew,
+        'promoCode': _promoCode,
+        'discount': _discount,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      setState(() => _isProcessing = false);
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            backgroundColor: QuantumColors.cardBackground,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle, color: Colors.green, size: 60),
                 ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 60),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                '¡Pago Exitoso!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 20),
+                const Text(
+                  '¡Pago Exitoso!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Tu membresía ${widget.plan.name} está activa.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Válida por ${widget.billingCycle.durationDays} días',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                const SizedBox(height: 10),
+                Text(
+                  'Tu membresía ${widget.plan.name} está activa.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Válida por ${widget.billingCycle.durationDays} días',
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
+                ),
+              ],
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: QuantumColors.quantumBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('¡EMPEZAR A ENTRENAR!'),
+                ),
               ),
             ],
           ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: QuantumColors.quantumBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('¡EMPEZAR A ENTRENAR!'),
-              ),
-            ),
-          ],
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al procesar pago: $e'),
+            backgroundColor: QuantumColors.error,
+          ),
+        );
+      }
     }
   }
 }

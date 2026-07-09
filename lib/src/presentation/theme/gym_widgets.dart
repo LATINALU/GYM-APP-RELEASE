@@ -311,7 +311,6 @@ class StatusBadge extends StatelessWidget {
           'icon': Icons.info,
         };
     }
-    return null;
   }
 }
 

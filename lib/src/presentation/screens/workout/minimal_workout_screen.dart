@@ -254,13 +254,49 @@ class _MinimalWorkoutScreenState extends State<MinimalWorkoutScreen> {
           ),
           QuantumIconButton(
             icon: Icons.more_vert,
-            onPressed: () {
-              // TODO: Mostrar menú
-            },
+            onPressed: () => _showWorkoutMenu(context),
             showBackground: true,
           ),
         ],
       ),
+    );
+  }
+
+  void _showWorkoutMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: QuantumColors.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.refresh, color: Colors.white70),
+                title: const Text('Reiniciar entrenamiento', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _sets = 4;
+                    _reps = 12;
+                  });
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.close, color: Colors.redAccent),
+                title: const Text('Cancelar entrenamiento', style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  widget.onBack?.call();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -271,7 +307,7 @@ class _ExerciseData {
   final String prescribedSets;
   final String weight;
   final bool isCompleted;
-  final String? imageUrl;
+  final String? imageUrl = null;
   final String? trainerNotes;
 
   _ExerciseData({
@@ -280,7 +316,6 @@ class _ExerciseData {
     this.prescribedSets = '3x12',
     required this.weight,
     required this.isCompleted,
-    this.imageUrl,
     this.trainerNotes,
   });
 }

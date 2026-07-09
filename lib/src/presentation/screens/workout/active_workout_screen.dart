@@ -217,8 +217,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with TickerPr
       }
 
       // Calcular volumen total
-      final totalVolume = _session.exercises.fold<double>(0, (sum, ex) {
-        return sum + ex.sets.fold<double>(0, (s, set) {
+      final totalVolume = _session.exercises.fold<double>(0, (acc, ex) {
+        return acc + ex.sets.fold<double>(0, (s, set) {
           return s + (set.weight * set.reps);
         });
       });
@@ -369,7 +369,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with TickerPr
             ),
             Row(
               children: [
-                Icon(Icons.timer, color: QuantumColors.quantumBlue, size: 14),
+                const Icon(Icons.timer, color: QuantumColors.quantumBlue, size: 14),
                 const SizedBox(width: 4),
                 Text(
                   _formatDuration(_elapsed),
@@ -632,7 +632,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> with TickerPr
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.lightbulb_outline,
                   color: QuantumColors.quantumBlue,
                   size: 20,

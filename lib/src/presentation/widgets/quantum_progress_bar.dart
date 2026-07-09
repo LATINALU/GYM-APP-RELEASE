@@ -144,7 +144,7 @@ class _QuantumProgressBarState extends State<QuantumProgressBar>
                             borderRadius: BorderRadius.circular(2),
                             boxShadow: [
                               BoxShadow(
-                                color: progressColor.withOpacity(_pulseAnimation.value),
+                                color: progressColor.withValues(alpha: _pulseAnimation.value),
                                 blurRadius: 10,
                                 spreadRadius: 2,
                               ),

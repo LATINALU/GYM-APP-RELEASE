@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../domain/entities/exercise.dart';
 import '../../../domain/value_objects/value_objects.dart';
-import '../../../infrastructure/mappers/exercise_mapper.dart';
+import '../../../infrastructure/adapters/firebase/firebase_exercise_repository.dart';
+import '../../../infrastructure/config/di.dart';
 import '../../theme/quantum_colors.dart';
 
 /// Biblioteca de Ejercicios del Owner
@@ -86,16 +86,13 @@ class _OwnerExerciseLibraryScreenState extends State<OwnerExerciseLibraryScreen>
 
     try {
       final gymId = AuthStateNotifier.instance.profile?.gymId?.value;
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('exercises')
-              .where('isActive', isEqualTo: true)
-              .get();
+      final exerciseRepo = getIt<FirebaseExerciseRepository>();
+      final result = await exerciseRepo.getAll();
 
-      final allExercises =
-          snapshot.docs
-              .map((doc) => ExerciseMapper.fromFirestore(doc.data(), doc.id))
-              .toList();
+      final allExercises = result.fold(
+        (failure) => throw Exception(failure.message),
+        (exercises) => exercises,
+      );
 
       final globalExercises =
           allExercises.where((exercise) => exercise.scope == ExerciseScope.global).toList();
@@ -399,10 +396,10 @@ class _OwnerExerciseLibraryScreenState extends State<OwnerExerciseLibraryScreen>
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (!isGlobal) ...[
-                  IconButton(icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.white24), onPressed: () {}, tooltip: 'Editar'),
-                  IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent), onPressed: () {}, tooltip: 'Eliminar'),
+                  IconButton(icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.white24), onPressed: () => _showEditExerciseDialog(exercise), tooltip: 'Editar'),
+                  IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent), onPressed: () => _confirmDeleteExercise(exercise), tooltip: 'Eliminar'),
                 ] else
-                  IconButton(icon: const Icon(Icons.visibility_rounded, size: 16, color: Colors.white24), onPressed: () {}, tooltip: 'Ver detalle'),
+                  IconButton(icon: const Icon(Icons.visibility_rounded, size: 16, color: Colors.white24), onPressed: () => _showExerciseDetail(exercise), tooltip: 'Ver detalle'),
               ],
             ),
           ),
@@ -619,10 +616,12 @@ class _OwnerExerciseLibraryScreenState extends State<OwnerExerciseLibraryScreen>
     );
 
     try {
-      await FirebaseFirestore.instance
-          .collection('exercises')
-          .doc(newExercise.id.value)
-          .set(ExerciseMapper.toFirestore(newExercise));
+      final exerciseRepo = getIt<FirebaseExerciseRepository>();
+      final createResult = await exerciseRepo.create(newExercise);
+      createResult.fold(
+        (failure) => throw Exception(failure.message),
+        (_) => null,
+      );
 
       if (!mounted) return;
 
@@ -646,5 +645,179 @@ class _OwnerExerciseLibraryScreenState extends State<OwnerExerciseLibraryScreen>
         SnackBar(content: Text('No se pudo crear el ejercicio: $e'), backgroundColor: Colors.redAccent),
       );
     }
+  }
+
+  void _showExerciseDetail(Exercise exercise) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(exercise.name, style: const TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Descripción', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(exercise.description, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            const SizedBox(height: 16),
+            const Text('Músculo principal', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            Text(exercise.primaryMuscle.displayName, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 12),
+            const Text('Tipo', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            Text(exercise.exerciseType.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 12),
+            const Text('Dificultad', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            Text(exercise.difficulty.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteExercise(Exercise exercise) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿Eliminar "${exercise.name}"?', style: const TextStyle(color: Colors.white)),
+        content: const Text(
+          'El ejercicio se marcará como inactivo.',
+          style: TextStyle(color: Colors.white54),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                final exerciseRepo = getIt<FirebaseExerciseRepository>();
+                final deactivateResult = await exerciseRepo.deactivate(exercise.id);
+                deactivateResult.fold(
+                  (failure) => throw Exception(failure.message),
+                  (_) => null,
+                );
+                if (mounted) {
+                  _loadExercises();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${exercise.name} eliminado'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditExerciseDialog(Exercise exercise) {
+    final nameCtrl = TextEditingController(text: exercise.name);
+    final descCtrl = TextEditingController(text: exercise.description);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.surface(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Editar "${exercise.name}"', style: const TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: 'Nombre', labelStyle: TextStyle(color: Colors.white38)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descCtrl,
+              style: const TextStyle(color: Colors.white),
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Descripción', labelStyle: TextStyle(color: Colors.white38)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                final exerciseRepo = getIt<FirebaseExerciseRepository>();
+                final updated = Exercise.restore(
+                  id: exercise.id,
+                  name: nameCtrl.text.trim(),
+                  description: descCtrl.text.trim(),
+                  instructions: exercise.instructions,
+                  imageUrl: exercise.imageUrl,
+                  animationUrl: exercise.animationUrl,
+                  videoUrl: exercise.videoUrl,
+                  movementPattern: exercise.movementPattern,
+                  exerciseType: exercise.exerciseType,
+                  equipment: exercise.equipment,
+                  difficulty: exercise.difficulty,
+                  heatmap: exercise.heatmap,
+                  recommendedRepRange: exercise.recommendedRepRange,
+                  estimatedCalories: exercise.estimatedCalories,
+                  scope: exercise.scope,
+                  createdBy: exercise.createdBy,
+                  gymId: exercise.gymId,
+                  isActive: exercise.isActive,
+                  createdAt: exercise.createdAt,
+                  updatedAt: DateTime.now(),
+                  sets: exercise.sets,
+                  reps: exercise.reps,
+                  restSeconds: exercise.restSeconds,
+                  notes: exercise.notes,
+                );
+                final updateResult = await exerciseRepo.update(updated);
+                updateResult.fold(
+                  (failure) => throw Exception(failure.message),
+                  (_) => null,
+                );
+                if (mounted) {
+                  _loadExercises();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Ejercicio actualizado'), backgroundColor: Color(0xFF10B981)),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.quantumBlue),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../theme/theme.dart';
-
-// Note: In a real DDD app, this should call a UseCase, not access Firestore directly.
-// For now, we maintain the functionality while upgrading the UI to Quantum standards.
 
 class ManualLogScreen extends StatefulWidget {
   const ManualLogScreen({super.key});
@@ -33,17 +32,46 @@ class _ManualLogScreenState extends State<ManualLogScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        // Implementation logic placeholder - should call a repository
-        await Future.delayed(const Duration(seconds: 1)); 
+        final auth = AuthStateNotifier.instance;
+        final userId = auth.profile?.uid;
+        final gymId = auth.profile?.gymId?.value;
+
+        if (userId == null) {
+          throw Exception('No se pudo identificar al usuario');
+        }
+
+        await FirebaseFirestore.instance.collection('manual_logs').add({
+          'userId': userId,
+          'gymId': gymId,
+          'date': _selectedDate.toIso8601String(),
+          'exerciseName': _exerciseNameController.text.trim(),
+          'muscleGroup': _selectedMuscleGroup,
+          'sets': int.tryParse(_setsController.text) ?? 0,
+          'reps': int.tryParse(_repsController.text) ?? 0,
+          'weight': double.tryParse(_weightController.text) ?? 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registro guardado correctamente')),
+            const SnackBar(
+              content: Text('Registro guardado correctamente'),
+              backgroundColor: QuantumColors.matrixCyan,
+              behavior: SnackBarBehavior.floating,
+            ),
           );
           context.pop();
         }
       } catch (e) {
-        debugPrint('Error saving: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al guardar: $e'),
+              backgroundColor: QuantumColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }

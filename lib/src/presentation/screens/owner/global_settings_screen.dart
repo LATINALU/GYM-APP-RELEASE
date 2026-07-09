@@ -403,7 +403,7 @@ class _GlobalSettingsScreenState extends State<GlobalSettingsScreen> {
           _saveSection('Identidad', {
             'legalName': _legalNameCtrl.text,
             'mainAddress': _mainAddressCtrl.text,
-            'brandColor': _brandColor.value,
+            'brandColor': _brandColor.toARGB32(),
             'logoUrl': _logoUrl,
           });
         }),
@@ -868,7 +868,7 @@ class _GlobalSettingsScreenState extends State<GlobalSettingsScreen> {
               Switch(
                 value: _maintenanceMode,
                 onChanged: (v) => setState(() { _maintenanceMode = v; _markChanged(); }),
-                activeColor: Colors.orange,
+                activeThumbColor: Colors.orange,
               ),
             ],
           ),
@@ -1011,7 +1011,7 @@ class _GlobalSettingsScreenState extends State<GlobalSettingsScreen> {
           ),
           Column(
             children: [
-              Switch(value: enabled, onChanged: onChanged, activeColor: color),
+              Switch(value: enabled, onChanged: onChanged, activeThumbColor: color),
               Text(enabled ? 'ACTIVO' : 'INACTIVO', style: TextStyle(color: enabled ? color : Colors.white24, fontSize: 9, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -1550,7 +1550,7 @@ class _GlobalSettingsScreenState extends State<GlobalSettingsScreen> {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: GymColors.primary,
+          activeThumbColor: GymColors.primary,
         ),
       ],
     );

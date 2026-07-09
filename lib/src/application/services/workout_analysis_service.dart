@@ -46,11 +46,11 @@ class WorkoutAnalysisService {
       final totalWorkouts = sessions.length;
       final totalDurationMinutes = sessions.fold<double>(
         0,
-        (sum, session) => sum + session.durationMinutes,
+        (acc, session) => acc + session.durationMinutes,
       );
       final totalVolume = sessions.fold<double>(
         0,
-        (sum, session) => sum + session.totalVolume,
+        (acc, session) => acc + session.totalVolume,
       );
 
       final streak = _calculateStreak(uniqueWorkoutDays);

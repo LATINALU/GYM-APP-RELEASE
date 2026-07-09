@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../../theme/theme.dart';
-import '../../theme/gym_widgets.dart';
 
 class ClientQrCheckinScreen extends StatefulWidget {
   const ClientQrCheckinScreen({super.key});
@@ -174,7 +172,8 @@ class _ClientQrCheckinScreenState extends State<ClientQrCheckinScreen>
                       version: QrVersions.auto,
                       size: 220.0,
                       gapless: false,
-                      foregroundColor: Colors.black,
+                      eyeStyle: const QrEyeStyle(color: Colors.black),
+                      dataModuleStyle: const QrDataModuleStyle(color: Colors.black),
                     ),
                   ),
                   AnimatedBuilder(
@@ -218,15 +217,15 @@ class _ClientQrCheckinScreenState extends State<ClientQrCheckinScreen>
               borderRadius: BorderRadius.circular(30),
               border: Border.all(color: QuantumColors.subtleBorder),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.timer_outlined,
                   size: 16,
                   color: QuantumColors.matrixCyan,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   'Válido con tu cuenta activa',
                   style: TextStyle(
@@ -332,7 +331,7 @@ class _ClientQrCheckinScreenState extends State<ClientQrCheckinScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   '¿Problemas con el código?',
                   style: TextStyle(
                     color: Colors.white,

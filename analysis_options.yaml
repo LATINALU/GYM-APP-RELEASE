@@ -65,10 +65,7 @@ linter:
     prefer_for_elements_to_map_fromIterable: true
     prefer_if_null_operators: true
     prefer_iterable_wheretype: true
-    prefer_void_async_null: true
     recursive_getters: true
-    unnecessary_null_aware_operator: true
     unnecessary_statements: true
-    unrelated_constructor_contracts: true
     use_string_buffers: true
     use_super_parameters: true

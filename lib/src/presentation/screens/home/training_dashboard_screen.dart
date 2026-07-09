@@ -502,54 +502,6 @@ class _TrainingDashboardContentState extends State<_TrainingDashboardContent> {
     );
   }
 
-  // ─── TRAINING GRID (Neon Action Cards) ────────────────────────────
-  Widget _buildTrainingGrid(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: constraints.maxWidth > 600 ? 3 : 2,
-          crossAxisSpacing: 14,
-          mainAxisSpacing: 14,
-          childAspectRatio: 1.15,
-          children: [
-            NeonActionCard(
-              icon: Icons.smart_toy_rounded,
-              title: 'Coach AI',
-              onTap: () => context.push('/client/chatbot'),
-            ),
-            NeonActionCard(
-              icon: Icons.edit_calendar_rounded,
-              title: 'Planificador',
-              onTap: () => context.push('/client/workout-planning'),
-            ),
-            NeonActionCard(
-              icon: Icons.menu_book_rounded,
-              title: 'Biblioteca',
-              onTap: () => context.push('/client/exercise-library'),
-            ),
-            NeonActionCard(
-              icon: Icons.qr_code_scanner_rounded,
-              title: 'Mi QR',
-              onTap: () => context.push('/client/digital-pass'),
-            ),
-            NeonActionCard(
-              icon: Icons.calendar_month_rounded,
-              title: 'Mesociclo',
-              onTap: () => context.push('/client/mesocycle'),
-            ),
-            NeonActionCard(
-              icon: Icons.bar_chart_rounded,
-              title: 'Análisis',
-              onTap: () => context.push('/client/workout-analysis'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // ─── RUTINA ACTIVA ─────────────────────────────────────────────────
   Widget _buildActiveRoutineSection(BuildContext context) {
     return BlocBuilder<AppBloc, AppState>(

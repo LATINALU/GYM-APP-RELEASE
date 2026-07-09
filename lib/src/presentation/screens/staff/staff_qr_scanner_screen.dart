@@ -1,11 +1,15 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/theme.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
+import '../../../infrastructure/config/di.dart';
+import '../../../domain/ports/output/check_in_repository_port.dart';
+import '../../../domain/ports/output/user_repository_port.dart';
+import '../../../domain/entities/entities.dart';
+import '../../../domain/value_objects/value_objects.dart';
 
 // Conditional import - mobile_scanner only works on mobile platforms
-// ignore: undefined_hidden_name
 // ignore_for_file: undefined_hidden_name
 
 /// Staff QR Scanner Screen for check-in validation
@@ -64,59 +68,57 @@ class _StaffQrScannerScreenState extends State<StaffQrScannerScreen>
 
       final userId = code.replaceFirst('QUANTUM_', '');
 
-      // Verificar que el usuario existe
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
+      // Verificar que el usuario existe via repository
+      final userRepo = getIt<UserRepositoryPort>();
+      final userResult = await userRepo.findByIdGlobal(UserId(userId));
 
-      if (!userDoc.exists) {
-        throw Exception('Usuario no encontrado');
-      }
-
-      final userData = userDoc.data()!;
-      final userName = userData['displayName'] ?? 'Usuario';
-      final membershipStatus = userData['membershipStatus'] ?? 'pending';
+      final user = userResult.fold(
+        (failure) => throw Exception(failure.message),
+        (user) => user,
+      );
 
       // Verificar membresía activa
-      if (membershipStatus != 'active') {
+      if (user.membershipStatus != MembershipStatus.approved) {
         throw Exception('Membresía no activa');
       }
 
-      // Registrar check-in
+      // Registrar check-in via repository
       final auth = AuthStateNotifier.instance;
-      final gymId = auth.profile?.gymId?.value;
       final registeredById = auth.profile?.uid;
 
-      if (gymId == null || registeredById == null) {
-        throw Exception('No se pudo resolver el gimnasio o el usuario actual');
+      if (registeredById == null) {
+        throw Exception('No se pudo resolver el usuario actual');
       }
 
-      final activeCheckIn = await FirebaseFirestore.instance
-          .collection('check_ins')
-          .where('gymId', isEqualTo: gymId)
-          .where('clientId', isEqualTo: userId)
-          .where('checkOutTime', isNull: true)
-          .limit(1)
-          .get();
+      final checkInRepo = getIt<CheckInRepositoryPort>();
 
-      if (activeCheckIn.docs.isNotEmpty) {
+      // Verificar check-in activo
+      final activeResult = await checkInRepo.findActiveByClient(UserId(userId));
+      final activeCheckIn = activeResult.fold(
+        (failure) => throw Exception(failure.message),
+        (checkIn) => checkIn,
+      );
+
+      if (activeCheckIn != null) {
         throw Exception('El cliente ya tiene un check-in activo');
       }
 
-      await FirebaseFirestore.instance.collection('check_ins').add({
-        'clientId': userId,
-        'gymId': gymId,
-        'registeredById': registeredById,
-        'checkInTime': DateTime.now().toIso8601String(),
-        'checkOutTime': null,
-        'notes': 'qr_scan',
-        'method': 'qr_scan',
-      });
+      // Crear check-in
+      final checkIn = CheckIn.create(
+        clientId: UserId(userId),
+        registeredById: UserId(registeredById),
+        notes: 'qr_scan',
+      );
+
+      final saveResult = await checkInRepo.save(checkIn);
+      saveResult.fold(
+        (failure) => throw Exception(failure.message),
+        (_) => null,
+      );
 
       if (mounted) {
         setState(() {
-          _userName = userName;
+          _userName = user.name.fullName;
           _isProcessing = false;
         });
 
@@ -271,7 +273,82 @@ class _StaffQrScannerScreenState extends State<StaffQrScannerScreen>
           style: QuantumTypography.h3.copyWith(color: Colors.white),
         ),
       ),
-      body: kIsWeb ? _buildWebScanner() : _buildWebScanner(), // Use web scanner for now
+      body: kIsWeb ? _buildWebScanner() : _buildMobileScanner(),
+    );
+  }
+
+  Widget _buildMobileScanner() {
+    return Stack(
+      children: [
+        MobileScanner(
+          onDetect: (capture) {
+            final List<Barcode> barcodes = capture.barcodes;
+            for (final barcode in barcodes) {
+              final String? rawValue = barcode.rawValue;
+              if (rawValue != null && rawValue.isNotEmpty) {
+                _processCode(rawValue);
+                break;
+              }
+            }
+          },
+        ),
+        // Overlay with scan frame
+        Center(
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: _isProcessing ? QuantumColors.success : QuantumColors.primary,
+                width: 3,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+        // Processing indicator
+        if (_isProcessing)
+          Container(
+            color: Colors.black54,
+            child: const Center(
+              child: CircularProgressIndicator(color: QuantumColors.success),
+            ),
+          ),
+        // Manual entry fallback
+        Positioned(
+          bottom: 32,
+          left: 32,
+          right: 32,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: QuantumColors.cardBackground,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: QuantumColors.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: TextField(
+                    controller: _manualCodeController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'O ingresa el código manualmente...',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      border: InputBorder.none,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.send_rounded, color: QuantumColors.primary),
+                        onPressed: () => _processCode(_manualCodeController.text),
+                      ),
+                    ),
+                    onSubmitted: _processCode,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

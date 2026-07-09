@@ -26,16 +26,16 @@ class HolographicDivider extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Colors.transparent,
-            QuantumColors.quantumBlue.withOpacity(0.3 * glowIntensity),
-            QuantumColors.quantumBlue.withOpacity(0.6 * glowIntensity),
-            QuantumColors.quantumBlue.withOpacity(0.3 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.3 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.6 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.3 * glowIntensity),
             Colors.transparent,
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
         ),
         boxShadow: [
           BoxShadow(
-            color: QuantumColors.quantumBlue.withOpacity(0.2 * glowIntensity),
+            color: QuantumColors.quantumBlue.withValues(alpha: 0.2 * glowIntensity),
             blurRadius: 8,
             spreadRadius: 0,
           ),
@@ -67,9 +67,9 @@ class HolographicVerticalDivider extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Colors.transparent,
-            QuantumColors.quantumBlue.withOpacity(0.3 * glowIntensity),
-            QuantumColors.quantumBlue.withOpacity(0.6 * glowIntensity),
-            QuantumColors.quantumBlue.withOpacity(0.3 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.3 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.6 * glowIntensity),
+            QuantumColors.quantumBlue.withValues(alpha: 0.3 * glowIntensity),
             Colors.transparent,
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],

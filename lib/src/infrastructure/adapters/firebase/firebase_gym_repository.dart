@@ -111,7 +111,6 @@ class FirebaseGymRepository implements GymRepositoryPort {
     }
   }
 
-  @override
   Future<Gym?> getGym(String gymId) async {
     final result = await findById(GymId(gymId));
     return result.fold(

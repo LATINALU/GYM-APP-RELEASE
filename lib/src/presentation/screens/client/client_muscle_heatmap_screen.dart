@@ -346,7 +346,7 @@ class _ClientMuscleHeatmapScreenState extends State<ClientMuscleHeatmapScreen> {
         const SizedBox(width: 8),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: QuantumColors.nebulaWhite,
             fontSize: 11,
             fontWeight: FontWeight.w500,

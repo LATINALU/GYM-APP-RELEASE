@@ -123,7 +123,7 @@ class NotificationSettingsScreen extends StatelessWidget {
               Switch.adaptive(
                 value: value,
                 onChanged: onChanged,
-                activeColor: QuantumTheme.primary,
+                activeThumbColor: QuantumTheme.primary,
               ),
             ],
           ),
