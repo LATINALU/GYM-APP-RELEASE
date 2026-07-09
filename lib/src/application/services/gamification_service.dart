@@ -63,7 +63,8 @@ class GamificationService {
   /// Award XP to user
   Future<void> awardXp(String userId, int xp, String reason) async {
     try {
-      await _firestore.collection('gamification').doc(userId).update({
+      // set + merge: funciona también para usuarios sin perfil todavía.
+      await _firestore.collection('gamification').doc(userId).set({
         'totalXp': FieldValue.increment(xp),
         'xpHistory': FieldValue.arrayUnion([
           {
@@ -72,7 +73,7 @@ class GamificationService {
             'timestamp': DateTime.now().toIso8601String(),
           },
         ]),
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       throw Exception('No se pudo otorgar XP: $e');
     }
@@ -87,29 +88,38 @@ class GamificationService {
   /// Update streak
   Future<int> updateStreak(String userId) async {
     try {
-      final doc = await _firestore.collection('gamification').doc(userId).get();
-      if (!doc.exists) return 1;
-      final data = doc.data()!;
-      final lastWorkout = DateTime.tryParse(data['lastWorkoutDate'] ?? '');
+      final docRef = _firestore.collection('gamification').doc(userId);
+      final doc = await docRef.get();
+      final data = doc.data() ?? const <String, dynamic>{};
+
+      final lastWorkout =
+          DateTime.tryParse(data['lastWorkoutDate']?.toString() ?? '');
       final today = DateTime.now();
-      int streak = data['currentStreak'] ?? 0;
+      int streak = _asInt(data['currentStreak']);
 
       if (lastWorkout != null) {
-        final diff = today.difference(lastWorkout).inDays;
+        // Comparación por día calendario para no depender de la hora.
+        final lastDay =
+            DateTime(lastWorkout.year, lastWorkout.month, lastWorkout.day);
+        final todayDay = DateTime(today.year, today.month, today.day);
+        final diff = todayDay.difference(lastDay).inDays;
         if (diff == 1) {
           streak++;
         } else if (diff > 1) {
+          streak = 1;
+        } else if (streak == 0) {
           streak = 1;
         }
       } else {
         streak = 1;
       }
 
-      await _firestore.collection('gamification').doc(userId).update({
+      final longest = _asInt(data['longestStreak']);
+      await docRef.set({
         'currentStreak': streak,
         'lastWorkoutDate': today.toIso8601String(),
-        'longestStreak': FieldValue.increment(0), // max logic in cloud function
-      });
+        'longestStreak': streak > longest ? streak : longest,
+      }, SetOptions(merge: true));
       return streak;
     } catch (e) {
       return 0;

@@ -75,6 +75,9 @@ dev_dependencies:
   # Lints actualizados a versión más reciente
   flutter_lints: ^5.0.0
   network_image_mock: ^2.1.1
+  fake_cloud_firestore: ^3.1.0
+  mocktail: ^1.0.5
+  bloc_test: ^9.1.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

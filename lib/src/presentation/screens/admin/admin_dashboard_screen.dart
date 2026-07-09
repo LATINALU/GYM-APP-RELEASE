@@ -198,13 +198,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             child: Icon(data.icon, color: data.color, size: 22),
           ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              data.value,
-              style: QuantumTypography.h2.copyWith(
-                color: Colors.white,
-                fontSize: 26,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                data.value,
+                style: QuantumTypography.h2.copyWith(
+                  color: Colors.white,
+                  fontSize: 26,
+                ),
               ),
             ),
           ),
