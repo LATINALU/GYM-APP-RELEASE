@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../common/widgets/widgets.dart';
 import '../../routines/routines.dart';
 import '../../../infrastructure/config/di.dart';
-import '../../../domain/ports/input/manage_routine_usecase_port.dart';
 
 /// Owner Dashboard Page with navigation
 class OwnerDashboardPage extends StatefulWidget {
@@ -71,9 +70,7 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
         );
       case 2:
         return BlocProvider(
-          create: (_) => RoutineBloc(
-            manageRoutineUseCase: getIt<ManageRoutineUseCasePort>(),
-          ),
+          create: (_) => getIt<RoutineBloc>(),
           child: RoutineManagementPage(
             userId: widget.userId ?? 'owner-1',
             onBack: () => setState(() => _currentIndex = 0),

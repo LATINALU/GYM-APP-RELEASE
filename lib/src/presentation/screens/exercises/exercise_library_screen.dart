@@ -1,7 +1,11 @@
 /// Exercise Library Screen - Browse and search all exercises
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import '../../theme/theme.dart';
+import '../../../domain/data/dataset_exercise_catalog.dart';
 import '../../../domain/entities/gym_exercise.dart';
+import '../../../domain/ports/output/exercise_media_port.dart';
+import '../../widgets/exercise/exercise_gif_view.dart';
 
 class ExerciseLibraryScreen extends StatefulWidget {
   const ExerciseLibraryScreen({super.key});
@@ -55,6 +59,11 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           style: QuantumTypography.h1.copyWith(color: Colors.white),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white70),
+            tooltip: 'Descargar biblioteca para uso sin internet',
+            onPressed: _downloadFullLibrary,
+          ),
           IconButton(
             icon: const Icon(Icons.filter_list, color: Colors.white70),
             onPressed: _showFilters,
@@ -210,6 +219,79 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
     );
   }
 
+  Future<void> _downloadFullLibrary() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.cardBackground,
+        title: const Text('Descargar biblioteca completa',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Se descargarán los GIFs de los 1,324 ejercicios (~130 MB) para que '
+          'toda la biblioteca funcione sin internet. Se recomienda usar WiFi.\n\n'
+          'Nota: los ejercicios de tus rutinas se descargan automáticamente; '
+          'esto es opcional para tener el catálogo completo offline.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: QuantumColors.quantumBlue),
+            child: const Text('Descargar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final media = GetIt.I<ExerciseMediaPort>();
+    final urls = DatasetExerciseCatalog.exercises
+        .map((e) => e.gifUrl)
+        .whereType<String>();
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.cardBackground,
+        title: const Text('Descargando ejercicios…',
+            style: TextStyle(color: Colors.white)),
+        content: StreamBuilder<double>(
+          stream: media.downloadFullLibrary(urls),
+          builder: (ctx, snapshot) {
+            final progress = snapshot.data ?? 0.0;
+            if (snapshot.connectionState == ConnectionState.done) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (Navigator.canPop(ctx)) Navigator.pop(ctx);
+              });
+            }
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.white12,
+                  color: QuantumColors.quantumBlue,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   void _showFilters() {
     showModalBottomSheet(
       context: context,
@@ -264,7 +346,7 @@ class _ExerciseListTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Muscle Icon
+            // Thumbnail del ejercicio (offline, empaquetado en assets)
             Container(
               width: 56,
               height: 56,
@@ -272,11 +354,11 @@ class _ExerciseListTile extends StatelessWidget {
                 color: QuantumColors.quantumBlue.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(
-                child: Text(
-                  exercise.primaryMuscle.icon,
-                  style: const TextStyle(fontSize: 28),
-                ),
+              child: ExerciseGifView(
+                gifUrl: exercise.gifUrl,
+                exerciseKey: exercise.id,
+                animated: false,
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             const SizedBox(width: 16),
@@ -708,24 +790,28 @@ class _ExerciseDetailsSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // GIF animado del ejercicio (local si está descargado)
+                  Center(
+                    child: Container(
+                      width: 220,
+                      height: 220,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ExerciseGifView(
+                        gifUrl: exercise.gifUrl,
+                        exerciseKey: exercise.id,
+                        fit: BoxFit.contain,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // Header
                   Row(
                     children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: QuantumColors.quantumBlue.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: Text(
-                            exercise.primaryMuscle.icon,
-                            style: const TextStyle(fontSize: 36),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

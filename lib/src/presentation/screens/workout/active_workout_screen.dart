@@ -9,6 +9,7 @@ import '../../../domain/entities/achievement.dart';
 import '../../../domain/entities/workout_session.dart';
 import '../../../domain/entities/workout_plan.dart';
 import '../../../domain/entities/gym_exercise.dart';
+import '../../widgets/exercise/exercise_gif_view.dart';
 import '../../bloc/app_bloc.dart';
 import '../../../application/services/gamification_service.dart';
 import '../../../infrastructure/config/di.dart';
@@ -886,11 +887,26 @@ class _ExerciseCardState extends State<_ExerciseCard> {
               ],
             ),
             const SizedBox(height: 8),
-            
-            // Exercise Name
-            Text(
-              widget.exercise.exerciseName,
-              style: QuantumTypography.h4.copyWith(color: Colors.white),
+
+            // GIF + Exercise Name
+            Row(
+              children: [
+                ExerciseGifView(
+                  exerciseKey: widget.exercise.exerciseId.isNotEmpty
+                      ? widget.exercise.exerciseId
+                      : widget.exercise.exerciseName,
+                  width: 72,
+                  height: 72,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.exercise.exerciseName,
+                    style: QuantumTypography.h4.copyWith(color: Colors.white),
+                  ),
+                ),
+              ],
             ),
             
             // Sets List
@@ -1209,12 +1225,13 @@ class _ExercisePickerSheetState extends State<_ExercisePickerSheet> {
                 final exercise = _filteredExercises[index];
                 return ListTile(
                   onTap: () => Navigator.pop(context, exercise),
-                  leading: CircleAvatar(
-                    backgroundColor: QuantumColors.quantumBlue.withValues(alpha: 0.2),
-                    child: Text(
-                      exercise.primaryMuscle.icon,
-                      style: const TextStyle(fontSize: 20),
-                    ),
+                  leading: ExerciseGifView(
+                    gifUrl: exercise.gifUrl,
+                    exerciseKey: exercise.id,
+                    animated: false,
+                    width: 48,
+                    height: 48,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   title: Text(
                     exercise.name,

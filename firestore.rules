@@ -335,6 +335,15 @@ service cloud.firestore {
           userGymMatches(request.resource.data.assignedById, request.resource.data.gymId) &&
           userGymMatches(request.resource.data.clientId, request.resource.data.gymId) &&
           isStaffOfGym(request.resource.data.gymId)
+        ) ||
+        (
+          // Auto-asignación: un cliente importa una rutina de su gym
+          // (QR del kiosko o de Training Forge) y se la asigna a sí mismo
+          request.resource.data.gymId is string &&
+          request.resource.data.clientId == uid() &&
+          request.resource.data.assignedById == uid() &&
+          userGymMatches(uid(), request.resource.data.gymId) &&
+          isMemberOfGym(request.resource.data.gymId)
         )
       );
 
@@ -1074,6 +1083,34 @@ service cloud.firestore {
       allow delete: if isAdmin() || (
         resource.data.gymId is string &&
         isOwnerOfGym(resource.data.gymId)
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STAFF (personal del gym gestionado desde staff_management_screen)
+    // ═══════════════════════════════════════════════════════════════════
+
+    match /staff/{staffId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isStaffOfGym(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isOwnerOfGym(request.resource.data.gymId)
+        )
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
       );
     }
 

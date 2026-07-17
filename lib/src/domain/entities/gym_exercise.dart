@@ -1,6 +1,9 @@
 /// Exercise Library - Complete exercise database
 import 'package:equatable/equatable.dart';
 
+import '../data/dataset_exercise_catalog.dart';
+import 'exercise.dart' as core;
+
 /// Muscle group enum
 enum MuscleGroup {
   chest('Pecho', '🫁'),
@@ -14,7 +17,8 @@ enum MuscleGroup {
   calves('Gemelos', '🦶'),
   abs('Abdominales', '🎯'),
   forearms('Antebrazos', '✊'),
-  traps('Trapecios', '🔺');
+  traps('Trapecios', '🔺'),
+  cardio('Cardio', '🏃');
 
   final String displayName;
   final String icon;
@@ -165,564 +169,135 @@ class GymExercise extends Equatable {
   );
 }
 
-/// Exercise Library Service - Contains all exercises
+/// Exercise Library Service
+///
+/// Fachada sobre el dataset (1,324 ejercicios, diseño uniforme de
+/// Gym visual). El catálogo estático anterior fue eliminado tras la purga
+/// de rutinas antiguas (migración jul-2026).
 class ExerciseLibrary {
-  static final List<GymExercise> _exercises = [
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CHEST EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'bench_press',
-      name: 'Press de Banca',
-      description: 'Ejercicio fundamental para pecho que trabaja los pectorales, deltoides anteriores y tríceps.',
-      primaryMuscle: MuscleGroup.chest,
-      secondaryMuscles: [MuscleGroup.triceps, MuscleGroup.shoulders],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.push,
-      isCompound: true,
-      requiresSpotter: true,
-      instructions: [
-        'Acuéstate en el banco con los pies firmes en el suelo.',
-        'Agarra la barra con las manos un poco más anchas que los hombros.',
-        'Saca la barra del rack y posiciónala sobre el pecho.',
-        'Baja la barra de forma controlada hasta tocar el pecho.',
-        'Empuja la barra hacia arriba hasta extender los brazos.',
-      ],
-      tips: [
-        'Mantén los omóplatos retraídos y el pecho elevado.',
-        'Los codos a 45-75 grados del torso.',
-        'Respira: inhala al bajar, exhala al subir.',
-      ],
-      commonMistakes: [
-        'Rebotar la barra en el pecho.',
-        'Arquear excesivamente la espalda.',
-        'No bloquear los codos arriba.',
-      ],
-      variations: ['Press con mancuernas', 'Press inclinado', 'Press declinado'],
-      alternatives: ['Flexiones', 'Press en máquina'],
-    ),
-    const GymExercise(
-      id: 'incline_bench_press',
-      name: 'Press Inclinado con Barra',
-      description: 'Variación del press que enfatiza la parte superior del pectoral.',
-      primaryMuscle: MuscleGroup.chest,
-      secondaryMuscles: [MuscleGroup.triceps, MuscleGroup.shoulders],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.push,
-      isCompound: true,
-      requiresSpotter: true,
-      instructions: [
-        'Ajusta el banco a 30-45 grados de inclinación.',
-        'Acuéstate con los pies firmes en el suelo.',
-        'Agarra la barra con agarre medio-ancho.',
-        'Baja la barra hasta la parte alta del pecho.',
-        'Empuja hacia arriba en línea recta.',
-      ],
-      tips: [
-        'Menor peso que el press plano.',
-        '30-45° es el ángulo óptimo.',
-      ],
-      commonMistakes: [
-        'Usar demasiada inclinación (se convierte en press de hombros).',
-        'Bajar la barra muy abajo.',
-      ],
-    ),
-    const GymExercise(
-      id: 'dumbbell_flyes',
-      name: 'Aperturas con Mancuernas',
-      description: 'Ejercicio de aislamiento para estirar y contraer los pectorales.',
-      primaryMuscle: MuscleGroup.chest,
-      secondaryMuscles: [],
-      equipment: Equipment.dumbbell,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Acuéstate en el banco con una mancuerna en cada mano.',
-        'Extiende los brazos sobre el pecho, palmas enfrentadas.',
-        'Baja las mancuernas en arco, manteniendo codos ligeramente flexionados.',
-        'Siente el estiramiento en el pecho.',
-        'Sube las mancuernas siguiendo el mismo arco.',
-      ],
-      tips: [
-        'Usa peso moderado - la técnica es más importante.',
-        'No bajes más allá del nivel del banco.',
-      ],
-      commonMistakes: [
-        'Extender completamente los codos (riesgo de lesión).',
-        'Usar demasiado peso.',
-      ],
-    ),
-    const GymExercise(
-      id: 'cable_crossover',
-      name: 'Cruces en Polea',
-      description: 'Excelente para definición y trabajo continuo del pectoral.',
-      primaryMuscle: MuscleGroup.chest,
-      secondaryMuscles: [MuscleGroup.shoulders],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Coloca las poleas altas y agarra los mangos.',
-        'Da un paso adelante con un pie para estabilidad.',
-        'Con los brazos extendidos, lleva los mangos hacia el centro.',
-        'Cruza ligeramente las manos al centro.',
-        'Regresa de forma controlada.',
-      ],
-      tips: [
-        'Mantén una ligera flexión de codos constante.',
-        'Contrae el pecho en cada repetición.',
-      ],
-    ),
+  static List<GymExercise>? _datasetCache;
+  static int _datasetVersion = -1;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // BACK EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'deadlift',
-      name: 'Peso Muerto',
-      description: 'El rey de los ejercicios. Trabaja prácticamente todo el cuerpo con énfasis en espalda y piernas.',
-      primaryMuscle: MuscleGroup.back,
-      secondaryMuscles: [MuscleGroup.hamstrings, MuscleGroup.glutes, MuscleGroup.traps, MuscleGroup.forearms],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.advanced,
-      pattern: MovementPattern.hinge,
-      isCompound: true,
-      requiresSpotter: false,
-      instructions: [
-        'Coloca los pies a la anchura de caderas, barra sobre el metatarso.',
-        'Agáchate y agarra la barra con agarre prono o mixto.',
-        'Pecho arriba, espalda recta, hombros sobre la barra.',
-        'Empuja el suelo con los pies mientras elevas el torso.',
-        'Bloquea caderas y rodillas arriba.',
-        'Baja de forma controlada.',
-      ],
-      tips: [
-        'La barra debe subir en línea recta pegada al cuerpo.',
-        'Activa el core antes de levantar.',
-        'No redondees la espalda bajo ninguna circunstancia.',
-      ],
-      commonMistakes: [
-        'Redondear la espalda baja.',
-        'Iniciar el movimiento con la espalda en lugar de las piernas.',
-        'Hiperextender la espalda arriba.',
-      ],
-      variations: ['Peso muerto sumo', 'Peso muerto rumano', 'Peso muerto con trampa'],
-    ),
-    const GymExercise(
-      id: 'pullups',
-      name: 'Dominadas',
-      description: 'Ejercicio fundamental de tracción vertical que construye una espalda ancha.',
-      primaryMuscle: MuscleGroup.back,
-      secondaryMuscles: [MuscleGroup.biceps, MuscleGroup.forearms],
-      equipment: Equipment.bodyweight,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.pull,
-      isCompound: true,
-      instructions: [
-        'Agarra la barra con las manos más anchas que los hombros.',
-        'Cuélgate con los brazos extendidos.',
-        'Tira de tu cuerpo hacia arriba llevando el pecho a la barra.',
-        'Aprieta los dorsales arriba.',
-        'Baja de forma controlada.',
-      ],
-      tips: [
-        'Inicia el movimiento con los dorsales, no los brazos.',
-        'Evita el balanceo.',
-      ],
-      variations: ['Dominadas supinas (chin-ups)', 'Dominadas lastradas', 'Dominadas asistidas'],
-    ),
-    const GymExercise(
-      id: 'barbell_row',
-      name: 'Remo con Barra',
-      description: 'Ejercicio compuesto para grosor de espalda.',
-      primaryMuscle: MuscleGroup.back,
-      secondaryMuscles: [MuscleGroup.biceps, MuscleGroup.traps],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.pull,
-      isCompound: true,
-      instructions: [
-        'Inclínate hacia adelante con la espalda recta a 45 grados.',
-        'Agarra la barra con las manos un poco más anchas que los hombros.',
-        'Tira de la barra hacia el abdomen bajo.',
-        'Aprieta los omóplatos arriba.',
-        'Baja de forma controlada.',
-      ],
-      tips: [
-        'Mantén el core activado.',
-        'No uses impulso de la espalda baja.',
-      ],
-    ),
-    const GymExercise(
-      id: 'lat_pulldown',
-      name: 'Jalón al Pecho',
-      description: 'Alternativa a dominadas para trabajar dorsales.',
-      primaryMuscle: MuscleGroup.back,
-      secondaryMuscles: [MuscleGroup.biceps],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.pull,
-      isCompound: true,
-      instructions: [
-        'Siéntate y ajusta el soporte de muslos.',
-        'Agarra la barra ancha con agarre prono.',
-        'Tira la barra hacia el pecho sacando el pecho.',
-        'Aprieta los dorsales.',
-        'Regresa de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'cable_row',
-      name: 'Remo en Polea',
-      description: 'Excelente para grosor de espalda media.',
-      primaryMuscle: MuscleGroup.back,
-      secondaryMuscles: [MuscleGroup.biceps],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.pull,
-      isCompound: true,
-      instructions: [
-        'Siéntate con los pies en la plataforma.',
-        'Agarra el mango con ambas manos.',
-        'Tira hacia el abdomen manteniendo la espalda recta.',
-        'Aprieta los omóplatos atrás.',
-        'Extiende los brazos de forma controlada.',
-      ],
-    ),
+  static List<GymExercise> get _exercises {
+    if (!DatasetExerciseCatalog.isLoaded) return const [];
+    if (_datasetCache == null ||
+        _datasetVersion != DatasetExerciseCatalog.version) {
+      _datasetCache = DatasetExerciseCatalog.exercises
+          .map(_fromTemplate)
+          .toList(growable: false);
+      _datasetVersion = DatasetExerciseCatalog.version;
+    }
+    return _datasetCache!;
+  }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SHOULDER EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'ohp',
-      name: 'Press Militar',
-      description: 'Ejercicio fundamental para hombros que también trabaja tríceps y core.',
-      primaryMuscle: MuscleGroup.shoulders,
-      secondaryMuscles: [MuscleGroup.triceps, MuscleGroup.traps],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.push,
-      isCompound: true,
-      instructions: [
-        'De pie, agarra la barra a la altura de los hombros.',
-        'Empuja la barra hacia arriba pasando la cara.',
-        'Extiende completamente los brazos.',
-        'Baja de forma controlada hasta los hombros.',
-      ],
-      tips: [
-        'Aprieta los glúteos para estabilidad.',
-        'No arquees la espalda.',
-      ],
-    ),
-    const GymExercise(
-      id: 'lateral_raise',
-      name: 'Elevaciones Laterales',
-      description: 'Aislamiento para el deltoides lateral - crea hombros anchos.',
-      primaryMuscle: MuscleGroup.shoulders,
-      secondaryMuscles: [],
-      equipment: Equipment.dumbbell,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'De pie con mancuernas a los lados.',
-        'Eleva los brazos lateralmente hasta la altura de los hombros.',
-        'Mantén una ligera flexión de codos.',
-        'Baja de forma controlada.',
-      ],
-      tips: [
-        'Lidera con los codos, no las manos.',
-        'Usa peso ligero y buen control.',
-      ],
-    ),
-    const GymExercise(
-      id: 'face_pull',
-      name: 'Face Pull',
-      description: 'Excelente para deltoides posterior y salud del hombro.',
-      primaryMuscle: MuscleGroup.shoulders,
-      secondaryMuscles: [MuscleGroup.back, MuscleGroup.traps],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.pull,
-      isCompound: false,
-      instructions: [
-        'Ajusta la polea a la altura de la cara.',
-        'Agarra la cuerda con agarre neutro.',
-        'Tira hacia la cara separando las manos.',
-        'Aprieta los omóplatos atrás.',
-        'Regresa de forma controlada.',
-      ],
-    ),
+  /// Convertir plantilla del dataset a GymExercise
+  static GymExercise _fromTemplate(core.ExerciseTemplate t) {
+    return GymExercise(
+      id: t.id,
+      name: t.name,
+      description: t.description,
+      primaryMuscle: _muscleFromCore(t.primaryMuscle),
+      secondaryMuscles: t.secondaryMuscles
+          .map(_muscleFromCore)
+          .toSet()
+          .toList(growable: false),
+      equipment: _equipmentFromCore(
+          t.equipment.isNotEmpty ? t.equipment.first : core.EquipmentType.bodyweight),
+      difficulty: _difficultyFromCore(t.difficulty),
+      pattern: _patternFromCore(t.movementPattern),
+      instructions: t.tips,
+      imageUrl: t.imageUrl,
+      gifUrl: t.gifUrl,
+      isCompound: t.exerciseType == core.ExerciseType.compound,
+      requiresSpotter: t.requiresSpotter,
+    );
+  }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LEG EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'squat',
-      name: 'Sentadilla',
-      description: 'El ejercicio más efectivo para piernas. Base de cualquier programa serio.',
-      primaryMuscle: MuscleGroup.quadriceps,
-      secondaryMuscles: [MuscleGroup.glutes, MuscleGroup.hamstrings, MuscleGroup.abs],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.squat,
-      isCompound: true,
-      requiresSpotter: true,
-      instructions: [
-        'Coloca la barra en la parte alta de la espalda (trapecios).',
-        'Pies a la anchura de hombros, puntas ligeramente hacia afuera.',
-        'Desbloquea las rodillas e inicia el descenso.',
-        'Baja hasta que los muslos estén paralelos al suelo (o más).',
-        'Empuja el suelo para subir.',
-      ],
-      tips: [
-        'Rodillas en línea con los pies.',
-        'Mantén el pecho arriba y la espalda recta.',
-        'Peso sobre los talones y el centro del pie.',
-      ],
-      commonMistakes: [
-        'Rodillas hacia adentro.',
-        'Talones se despegan del suelo.',
-        'Espalda se redondea.',
-      ],
-      variations: ['Sentadilla frontal', 'Sentadilla goblet', 'Sentadilla búlgara'],
-    ),
-    const GymExercise(
-      id: 'leg_press',
-      name: 'Prensa de Piernas',
-      description: 'Excelente para cargar peso sin estrés en la espalda.',
-      primaryMuscle: MuscleGroup.quadriceps,
-      secondaryMuscles: [MuscleGroup.glutes, MuscleGroup.hamstrings],
-      equipment: Equipment.machine,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.squat,
-      isCompound: true,
-      instructions: [
-        'Siéntate con la espalda bien apoyada.',
-        'Pies a la anchura de hombros en la plataforma.',
-        'Desbloquea y baja la plataforma flexionando las rodillas.',
-        'Baja hasta 90 grados de flexión.',
-        'Empuja para extender las piernas sin bloquear rodillas.',
-      ],
-    ),
-    const GymExercise(
-      id: 'rdl',
-      name: 'Peso Muerto Rumano',
-      description: 'Enfocado en isquiotibiales y glúteos con menos carga en espalda baja.',
-      primaryMuscle: MuscleGroup.hamstrings,
-      secondaryMuscles: [MuscleGroup.glutes, MuscleGroup.back],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.hinge,
-      isCompound: true,
-      instructions: [
-        'De pie con la barra, rodillas ligeramente flexionadas.',
-        'Empuja las caderas hacia atrás manteniendo la espalda recta.',
-        'Baja la barra por las piernas sintiendo el estiramiento.',
-        'Baja hasta donde permita tu flexibilidad.',
-        'Contrae glúteos para subir.',
-      ],
-    ),
-    const GymExercise(
-      id: 'leg_extension',
-      name: 'Extensión de Piernas',
-      description: 'Aislamiento de cuádriceps.',
-      primaryMuscle: MuscleGroup.quadriceps,
-      secondaryMuscles: [],
-      equipment: Equipment.machine,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Siéntate y ajusta el respaldo y el rodillo.',
-        'El rodillo debe estar sobre los tobillos.',
-        'Extiende las piernas contrayendo los cuádriceps.',
-        'Sostén arriba un momento.',
-        'Baja de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'leg_curl',
-      name: 'Curl Femoral',
-      description: 'Aislamiento de isquiotibiales.',
-      primaryMuscle: MuscleGroup.hamstrings,
-      secondaryMuscles: [],
-      equipment: Equipment.machine,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Acuéstate boca abajo en la máquina.',
-        'Ajusta el rodillo sobre los talones.',
-        'Flexiona las rodillas llevando los talones a los glúteos.',
-        'Aprieta los isquiotibiales arriba.',
-        'Baja de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'calf_raise',
-      name: 'Elevación de Gemelos',
-      description: 'Ejercicio fundamental para desarrollar los gemelos.',
-      primaryMuscle: MuscleGroup.calves,
-      secondaryMuscles: [],
-      equipment: Equipment.machine,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Páralo con la punta de los pies en el borde.',
-        'Baja los talones para estirar.',
-        'Elévate sobre las puntas contrayendo los gemelos.',
-        'Sostén arriba un momento.',
-        'Baja de forma controlada.',
-      ],
-    ),
+  static MuscleGroup _muscleFromCore(core.MuscleGroup m) {
+    switch (m) {
+      case core.MuscleGroup.chest: return MuscleGroup.chest;
+      case core.MuscleGroup.back:
+      case core.MuscleGroup.lats:
+      case core.MuscleGroup.upperBack:
+      case core.MuscleGroup.rhomboids:
+      case core.MuscleGroup.lowerBack: return MuscleGroup.back;
+      case core.MuscleGroup.shoulders:
+      case core.MuscleGroup.frontDelts:
+      case core.MuscleGroup.sideDelts:
+      case core.MuscleGroup.rearDelts: return MuscleGroup.shoulders;
+      case core.MuscleGroup.biceps: return MuscleGroup.biceps;
+      case core.MuscleGroup.triceps: return MuscleGroup.triceps;
+      case core.MuscleGroup.quadriceps: return MuscleGroup.quadriceps;
+      case core.MuscleGroup.hamstrings: return MuscleGroup.hamstrings;
+      case core.MuscleGroup.glutes:
+      case core.MuscleGroup.adductors:
+      case core.MuscleGroup.abductors: return MuscleGroup.glutes;
+      case core.MuscleGroup.calves: return MuscleGroup.calves;
+      case core.MuscleGroup.abs:
+      case core.MuscleGroup.obliques:
+      case core.MuscleGroup.hipFlexors: return MuscleGroup.abs;
+      case core.MuscleGroup.forearms: return MuscleGroup.forearms;
+      case core.MuscleGroup.traps: return MuscleGroup.traps;
+      case core.MuscleGroup.cardio:
+      case core.MuscleGroup.fullBody: return MuscleGroup.cardio;
+    }
+  }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ARM EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'barbell_curl',
-      name: 'Curl con Barra',
-      description: 'Ejercicio clásico para bíceps.',
-      primaryMuscle: MuscleGroup.biceps,
-      secondaryMuscles: [MuscleGroup.forearms],
-      equipment: Equipment.barbell,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'De pie con la barra, brazos extendidos.',
-        'Mantén los codos pegados al cuerpo.',
-        'Flexiona los codos llevando la barra hacia los hombros.',
-        'Aprieta los bíceps arriba.',
-        'Baja de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'hammer_curl',
-      name: 'Curl Martillo',
-      description: 'Trabaja bíceps y braquial, desarrolla grosor del brazo.',
-      primaryMuscle: MuscleGroup.biceps,
-      secondaryMuscles: [MuscleGroup.forearms],
-      equipment: Equipment.dumbbell,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'De pie con mancuernas, palmas mirándose.',
-        'Mantén los codos fijos.',
-        'Flexiona los codos manteniendo el agarre neutro.',
-        'Baja de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'tricep_pushdown',
-      name: 'Extensiones de Tríceps en Polea',
-      description: 'Aislamiento efectivo para los tres cabezas del tríceps.',
-      primaryMuscle: MuscleGroup.triceps,
-      secondaryMuscles: [],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Agarra la barra o cuerda con las manos.',
-        'Codos pegados al cuerpo.',
-        'Extiende los brazos hacia abajo.',
-        'Aprieta los tríceps abajo.',
-        'Sube de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'dips',
-      name: 'Fondos en Paralelas',
-      description: 'Ejercicio compuesto para tríceps y pecho.',
-      primaryMuscle: MuscleGroup.triceps,
-      secondaryMuscles: [MuscleGroup.chest, MuscleGroup.shoulders],
-      equipment: Equipment.bodyweight,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.push,
-      isCompound: true,
-      instructions: [
-        'Agarra las barras paralelas y elévate.',
-        'Inclina ligeramente hacia adelante.',
-        'Baja hasta que los codos formen 90 grados.',
-        'Empuja para subir.',
-      ],
-    ),
+  static Equipment _equipmentFromCore(core.EquipmentType e) {
+    switch (e) {
+      case core.EquipmentType.barbell:
+      case core.EquipmentType.trapBar:
+      case core.EquipmentType.ezBar:
+      case core.EquipmentType.specialtyBar: return Equipment.barbell;
+      case core.EquipmentType.dumbbell: return Equipment.dumbbell;
+      case core.EquipmentType.kettlebell: return Equipment.kettlebell;
+      case core.EquipmentType.cable: return Equipment.cable;
+      case core.EquipmentType.machine:
+      case core.EquipmentType.smithMachine: return Equipment.machine;
+      case core.EquipmentType.bodyweight:
+      case core.EquipmentType.pullupBar: return Equipment.bodyweight;
+      case core.EquipmentType.resistanceBand: return Equipment.resistanceBand;
+      case core.EquipmentType.medicineBall:
+      case core.EquipmentType.bench:
+      case core.EquipmentType.box: return Equipment.other;
+    }
+  }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CORE EXERCISES
-    // ═══════════════════════════════════════════════════════════════════════════
-    const GymExercise(
-      id: 'plank',
-      name: 'Plancha',
-      description: 'Ejercicio isométrico fundamental para el core.',
-      primaryMuscle: MuscleGroup.abs,
-      secondaryMuscles: [MuscleGroup.shoulders],
-      equipment: Equipment.bodyweight,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Apoya antebrazos y puntas de pies.',
-        'Cuerpo en línea recta de cabeza a talones.',
-        'Contrae el core y glúteos.',
-        'Mantén la posición el tiempo indicado.',
-      ],
-    ),
-    const GymExercise(
-      id: 'hanging_leg_raise',
-      name: 'Elevación de Piernas Colgado',
-      description: 'Ejercicio avanzado para abdomen inferior.',
-      primaryMuscle: MuscleGroup.abs,
-      secondaryMuscles: [],
-      equipment: Equipment.bodyweight,
-      difficulty: ExerciseDifficulty.intermediate,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Cuélgate de una barra.',
-        'Mantén las piernas juntas.',
-        'Eleva las piernas hasta 90 grados.',
-        'Baja de forma controlada.',
-      ],
-    ),
-    const GymExercise(
-      id: 'cable_crunch',
-      name: 'Crunch en Polea',
-      description: 'Crunch con resistencia progresiva.',
-      primaryMuscle: MuscleGroup.abs,
-      secondaryMuscles: [],
-      equipment: Equipment.cable,
-      difficulty: ExerciseDifficulty.beginner,
-      pattern: MovementPattern.isolation,
-      isCompound: false,
-      instructions: [
-        'Arrodíllate frente a la polea alta.',
-        'Sostén la cuerda detrás de la cabeza.',
-        'Flexiona el torso llevando los codos hacia las rodillas.',
-        'Aprieta los abdominales.',
-        'Sube de forma controlada.',
-      ],
-    ),
-  ];
+  static ExerciseDifficulty _difficultyFromCore(core.ExerciseDifficulty d) {
+    switch (d) {
+      case core.ExerciseDifficulty.beginner: return ExerciseDifficulty.beginner;
+      case core.ExerciseDifficulty.intermediate: return ExerciseDifficulty.intermediate;
+      case core.ExerciseDifficulty.advanced:
+      case core.ExerciseDifficulty.expert: return ExerciseDifficulty.advanced;
+    }
+  }
+
+  static MovementPattern _patternFromCore(core.MovementPattern p) {
+    switch (p) {
+      case core.MovementPattern.verticalPush:
+      case core.MovementPattern.horizontalPush: return MovementPattern.push;
+      case core.MovementPattern.verticalPull:
+      case core.MovementPattern.horizontalPull: return MovementPattern.pull;
+      case core.MovementPattern.squat: return MovementPattern.squat;
+      case core.MovementPattern.hipHinge:
+      case core.MovementPattern.hipExtension: return MovementPattern.hinge;
+      case core.MovementPattern.lunge: return MovementPattern.lunge;
+      case core.MovementPattern.coreRotation: return MovementPattern.rotation;
+      case core.MovementPattern.carry: return MovementPattern.carry;
+      default: return MovementPattern.isolation;
+    }
+  }
+
 
   /// Get all exercises
   static List<GymExercise> get all => _exercises;
 
   /// Get exercise by ID
   static GymExercise? getById(String id) {
-    try {
-      return _exercises.firstWhere((e) => e.id == id);
-    } catch (_) {
-      return null;
+    for (final e in _exercises) {
+      if (e.id == id) return e;
     }
+    return null;
   }
 
   /// Get exercises by muscle group

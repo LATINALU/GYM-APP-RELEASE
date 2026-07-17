@@ -6,6 +6,7 @@ export 'auth_repository_port.dart';
 export 'email_service_port.dart';
 export 'notification_service_port.dart';
 export 'exercise_repository_port.dart';
+export 'exercise_media_port.dart';
 export 'gym_repository_port.dart';
 export 'settings_repository_port.dart';
 export 'recovery_repository_port.dart';

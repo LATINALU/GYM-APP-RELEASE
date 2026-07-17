@@ -56,8 +56,10 @@ class RoutineAssignment extends Equatable {
     DateTime? endDate,
     String? notes,
   }) {
-    // Validate assigner has permission
-    if (!assignedBy.role.canAssignRoutines) {
+    // Validate assigner has permission. Self-assignment is allowed:
+    // a client importing a routine (QR from kiosk/Training Forge)
+    // assigns it to themselves.
+    if (!assignedBy.role.canAssignRoutines && assignedBy.id != clientId) {
       throw const UnauthorizedException(
         'No tienes permisos para asignar rutinas',
       );

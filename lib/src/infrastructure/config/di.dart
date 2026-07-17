@@ -15,6 +15,7 @@ import '../../application/services/nutrition_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/local/local_exercise_repository.dart';
+import '../adapters/local/local_exercise_media_service.dart';
 import '../adapters/cached_assignment_repository.dart';
 import '../adapters/cached_routine_repository.dart';
 import '../adapters/cached_check_in_repository.dart';
@@ -77,12 +78,20 @@ Future<void> configureDependencies() async {
     );
   }
   
+  // Media local de ejercicios (GIFs persistidos para uso sin internet)
+  if (!getIt.isRegistered<ExerciseMediaPort>()) {
+    getIt.registerLazySingleton<ExerciseMediaPort>(
+      () => LocalExerciseMediaService(client: getIt<http.Client>()),
+    );
+  }
+
   if (!getIt.isRegistered<RoutineRepositoryPort>()) {
     getIt.registerLazySingleton<RoutineRepositoryPort>(
       () => CachedRoutineRepository(
         FirebaseRoutineRepository(getIt<FirebaseFirestore>()),
         LocalCacheService.instance,
         ConnectivityService.instance,
+        media: getIt<ExerciseMediaPort>(),
       ),
     );
   }
@@ -204,6 +213,15 @@ Future<void> configureDependencies() async {
       ),
     );
   }
+
+  // Rutinas predefinidas del dataset (creación idempotente, no destructiva)
+  if (!getIt.isRegistered<SeedRoutinesUseCase>()) {
+    getIt.registerFactory<SeedRoutinesUseCase>(
+      () => SeedRoutinesUseCase(
+        manageRoutines: getIt<ManageRoutineUseCasePort>(),
+      ),
+    );
+  }
   
   if (!getIt.isRegistered<GetDashboardDataUseCase>()) {
     getIt.registerFactory<GetDashboardDataUseCase>(
@@ -316,6 +334,16 @@ Future<void> configureDependencies() async {
     );
   }
 
+  if (!getIt.isRegistered<ImportRoutineFromQrUseCase>()) {
+    getIt.registerFactory<ImportRoutineFromQrUseCase>(
+      () => ImportRoutineFromQrUseCase(
+        userRepository: getIt<UserRepositoryPort>(),
+        routineRepository: getIt<RoutineRepositoryPort>(),
+        assignmentRepository: getIt<AssignmentRepositoryPort>(),
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // BLOCS - Consolidated to 4 main functions
   // ═══════════════════════════════════════════════════════════════════════════
@@ -332,6 +360,7 @@ Future<void> configureDependencies() async {
     getIt.registerFactory<RoutineBloc>(
       () => RoutineBloc(
         manageRoutineUseCase: getIt<ManageRoutineUseCasePort>(),
+        seedRoutinesUseCase: getIt<SeedRoutinesUseCase>(),
       ),
     );
   }

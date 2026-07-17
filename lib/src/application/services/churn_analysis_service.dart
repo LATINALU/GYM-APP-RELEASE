@@ -3,20 +3,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum ChurnRisk { low, medium, high }
 
 class ChurnAnalysisService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  ChurnAnalysisService({FirebaseFirestore? firestore})
+      : _firestoreOverride = firestore;
+
+  final FirebaseFirestore? _firestoreOverride;
+
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   /// FUNCIÓN 1: Algoritmo de Predicción de Abandono (Predictive Logic)
   Future<Map<String, dynamic>> calculateChurnRisk(String userId) async {
     final now = DateTime.now();
     final userDoc = await _firestore.collection('users').doc(userId).get();
     final userData = userDoc.data() ?? {};
-    
+
     final lastVisit = (userData['lastCheckIn'] as Timestamp?)?.toDate();
     if (lastVisit == null) return {'level': 'CRITICAL', 'score': 1.0};
 
     final daysSinceLastVisit = now.difference(lastVisit).inDays;
-    
-    // Simulación de tendencia (Promedio mensual vs asistencias este mes)
+
+    // Tendencia: promedio mensual vs asistencias este mes
     final avgVisitsLastMonth = userData['avgVisitsLastMonth'] ?? 12.0;
     final visitsThisMonth = userData['visitsThisMonth'] ?? 4.0;
     final attendanceTrend = avgVisitsLastMonth - visitsThisMonth;
@@ -29,8 +35,11 @@ class ChurnAnalysisService {
     }
 
     // Actualizar base de datos para mostrar en Dashboard
-    await _firestore.collection('users').doc(userId).update({'churn_risk': riskLevel});
-    
+    await _firestore
+        .collection('users')
+        .doc(userId)
+        .update({'churn_risk': riskLevel});
+
     return {'level': riskLevel, 'daysAbsent': daysSinceLastVisit};
   }
 
@@ -45,13 +54,25 @@ class ChurnAnalysisService {
     return 'Hola $userName, ¡gran trabajo! Sigue así con tu entrenamiento.';
   }
 
-  /// Obtiene una lista de usuarios con alto riesgo de abandono
-  Future<List<Map<String, dynamic>>> getHighRiskUsers() async {
-    final usersSnap = await _firestore.collection('users')
-        .where('churn_risk', whereIn: ['CRITICAL', 'HIGH'])
-        .limit(20)
-        .get();
-    
+  /// Usuarios con alto riesgo de abandono DEL GIMNASIO indicado.
+  /// El filtro por gymId es obligatorio: sin él un owner vería socios
+  /// de otros gimnasios (fuga multi-tenant).
+  Future<List<Map<String, dynamic>>> getHighRiskUsers({
+    required String gymId,
+  }) async {
+    final normalizedGymId = gymId.trim();
+    if (normalizedGymId.isEmpty) {
+      throw Exception('gymId es obligatorio para el análisis de retención');
+    }
+
+    final usersSnap =
+        await _firestore
+            .collection('users')
+            .where('gymId', isEqualTo: normalizedGymId)
+            .where('churn_risk', whereIn: ['CRITICAL', 'HIGH'])
+            .limit(20)
+            .get();
+
     return usersSnap.docs.map((doc) {
       final data = doc.data();
       return {

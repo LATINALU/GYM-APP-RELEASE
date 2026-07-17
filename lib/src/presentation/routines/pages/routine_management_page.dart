@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/routine_bloc.dart';
+import '../../../domain/data/routine_seeds.dart';
 import '../../../domain/entities/entities.dart';
-import '../../../domain/data/exercise_gifs.dart';
+import '../../widgets/exercise/exercise_gif_view.dart';
 import '../../../domain/value_objects/value_objects.dart'; // Import para UserId
 import 'routine_editor_page.dart';
 import '../../theme/quantum_colors.dart';
+import '../../widgets/share_routine_qr_dialog.dart';
 
 /// Página principal de gestión de rutinas para Admin/Empleados
 class RoutineManagementPage extends StatelessWidget {
@@ -55,6 +57,11 @@ class RoutineManagementPage extends StatelessWidget {
               }
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Crear rutinas predefinidas',
+            onPressed: () => _confirmSeedRoutines(context),
+          ),
         ],
       ),
       body: BlocConsumer<RoutineBloc, RoutineState>(
@@ -68,6 +75,15 @@ class RoutineManagementPage extends StatelessWidget {
             );
           }
           if (state is RoutineSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message),
+                backgroundColor: Colors.green,
+              ),
+            );
+            context.read<RoutineBloc>().add(LoadRoutines());
+          }
+          if (state is RoutineMaintenanceSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -115,6 +131,42 @@ class RoutineManagementPage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<void> _confirmSeedRoutines(BuildContext context) async {
+    final bloc = context.read<RoutineBloc>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QuantumColors.voidGray,
+        title: const Text('Rutinas predefinidas',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Se crearán ${RoutineSeeds.all.length} rutinas profesionales con '
+          'el catálogo de ejercicios: Full Body, Empuje/Tirón/Pierna, '
+          'Glúteos, Core, y los 5 programas de LogPress (Fuerza de Inicio, '
+          'Destructor Cardio, Maestro de Peso Corporal, Fundamentos de '
+          'Powerlifting y Dinamo de Mancuernas). '
+          'Las que ya existan por nombre se omiten.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: QuantumColors.holoPurple),
+            child: const Text('Crear rutinas'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      bloc.add(SeedRoutinesRequested(UserId(userId)));
+    }
   }
 
   Widget _buildRoutinesList(BuildContext context, RoutinesLoaded state) {
@@ -242,6 +294,19 @@ class RoutineManagementPage extends StatelessWidget {
                     itemBuilder:
                         (context) => [
                           const PopupMenuItem(
+                            value: 'share_qr',
+                            child: Row(
+                              children: [
+                                Icon(Icons.qr_code_rounded, color: Colors.white70),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Compartir QR',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
                             value: 'edit',
                             child: Row(
                               children: [
@@ -328,20 +393,11 @@ class RoutineManagementPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                           color: QuantumColors.elevatedGray,
                         ),
-                        child: ClipRRect(
+                        child: ExerciseGifView(
+                          gifUrl: exercise.animationUrl,
+                          exerciseKey: exercise.name,
+                          animated: false,
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            ExerciseGifs.getGifUrl(exercise.name) ??
-                                ExerciseGifs.placeholder,
-                            fit: BoxFit.cover,
-                            errorBuilder:
-                                (_, __, ___) => const Center(
-                                  child: Icon(
-                                    Icons.fitness_center,
-                                    color: Colors.white38,
-                                  ),
-                                ),
-                          ),
                         ),
                       );
                     },
@@ -432,6 +488,25 @@ class RoutineManagementPage extends StatelessWidget {
     switch (action) {
       case 'edit':
         context.read<RoutineBloc>().add(StartEditingRoutine(routine));
+        break;
+      case 'share_qr':
+        ShareRoutineQrDialog.show(
+          context,
+          routineId: routine.id.value,
+          routineName: routine.name,
+          description: routine.description,
+          difficulty: routine.difficulty.displayName,
+          estimatedDuration: routine.estimatedDurationMinutes,
+          exercises: routine.exercises.map((e) => {
+            'exerciseId': e.id.value,
+            'exerciseName': e.name,
+            'muscleGroup': e.primaryMuscle.displayName,
+            'sets': e.sets,
+            'reps': '${e.reps}',
+            'restSeconds': e.restSeconds ?? 60,
+          }).toList(),
+          createdBy: routine.createdBy.value,
+        );
         break;
       case 'duplicate':
         _showDuplicateDialog(context, routine);

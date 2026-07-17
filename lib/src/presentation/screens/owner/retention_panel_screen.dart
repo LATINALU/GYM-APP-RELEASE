@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gym_app/core/auth/auth_state_notifier.dart';
 import '../../../application/services/churn_analysis_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/theme.dart';
@@ -30,7 +31,11 @@ class _RetentionPanelScreenState extends State<RetentionPanelScreen> {
     });
 
     try {
-      final users = await _churnService.getHighRiskUsers();
+      final gymId = AuthStateNotifier.instance.profile?.gymId?.value;
+      if (gymId == null || gymId.trim().isEmpty) {
+        throw Exception('gymId no disponible para el análisis de retención');
+      }
+      final users = await _churnService.getHighRiskUsers(gymId: gymId);
       setState(() {
         _atRiskUsers = users;
         _isLoading = false;

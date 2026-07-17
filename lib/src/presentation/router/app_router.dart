@@ -42,7 +42,9 @@ import '../screens/owner/owner_member_wizard_screen.dart';
 import '../screens/owner/pending_registrations_screen.dart';
 import '../screens/client/client_qr_pass_screen.dart';
 import '../screens/client/routine_selection_screen.dart';
+import '../screens/client/routine_import_scanner_screen.dart';
 import '../screens/workout/manual_log_screen.dart';
+import '../screens/kiosk/kiosk_routine_screen.dart';
 import '../screens/screens.dart' hide MembershipPlansScreen;
 import '../../domain/entities/entities.dart';
 
@@ -290,6 +292,15 @@ class AppRouter {
         builder: (context, state) => const OwnerMemberWizardScreen(),
       ),
 
+      // Kiosk Mode (Full-screen, no sidebar, for desktop stations at gym)
+      GoRoute(
+        path: '/kiosk/routines',
+        name: 'kioskRoutines',
+        builder: (context, state) => KioskRoutineScreen(
+          gymId: state.uri.queryParameters['gymId'],
+        ),
+      ),
+
       // Staff Routes (with bottom navigation shell)
       ShellRoute(
         builder: (context, state, child) => StaffMainLayout(child: child),
@@ -344,6 +355,11 @@ class AppRouter {
         path: '/client/qr',
         name: 'clientQr',
         builder: (context, state) => const ClientQrScreen(),
+      ),
+      GoRoute(
+        path: '/client/import-routine',
+        name: 'clientImportRoutine',
+        builder: (context, state) => const RoutineImportScannerScreen(),
       ),
       GoRoute(
         path: '/classes/gym-classes',
@@ -551,6 +567,13 @@ class AppRouter {
     if (role is! GymRole) return false;
     // Admin can access everything
     if (role.type == GymRoleType.admin) return true;
+    // Kiosk requiere sesión de staff/owner: las reglas de Firestore no
+    // permiten leer rutinas sin autenticación, y una estación pública no
+    // debe quedar con acceso al resto del panel
+    if (location.startsWith('/kiosk')) {
+      return role.type == GymRoleType.owner ||
+          role.type == GymRoleType.employee;
+    }
     if (location.startsWith('/admin')) return role.type == GymRoleType.admin;
     if (location.startsWith('/owner')) return role.type == GymRoleType.owner;
     if (location.startsWith('/staff')) {

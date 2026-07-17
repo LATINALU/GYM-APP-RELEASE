@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -17,6 +18,7 @@ import 'src/presentation/router/app_router.dart';
 import 'src/application/use_cases/use_cases.dart';
 import 'src/infrastructure/services/local_cache_service.dart';
 import 'src/infrastructure/services/connectivity_service.dart';
+import 'src/domain/data/dataset_exercise_catalog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +39,12 @@ void main() async {
     androidProvider: AndroidProvider.playIntegrity,
     appleProvider: AppleProvider.deviceCheck,
   );
+
+  // Cargar el dataset de ejercicios (1,324 ejercicios con GIFs e
+  // instrucciones en español) y fusionarlo con el catálogo estático
+  final exercisesJson =
+      await rootBundle.loadString('assets/data/exercises_dataset.json');
+  DatasetExerciseCatalog.loadFromJsonString(exercisesJson);
 
   // Initialize DI (GetIt) — repos, use cases, adapters
   await configureDependencies();

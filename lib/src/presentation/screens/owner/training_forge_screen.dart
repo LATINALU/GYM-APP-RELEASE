@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../theme/quantum_colors.dart';
 import '../../theme/gym_widgets.dart';
+import '../../widgets/share_routine_qr_dialog.dart';
 import 'training_forge_store.dart';
 
 class TrainingForgeScreen extends StatefulWidget {
@@ -364,11 +366,13 @@ class _TrainingForgeScreenState extends State<TrainingForgeScreen> with SingleTi
                 icon: const Icon(Icons.more_vert_rounded, color: Colors.white24),
                 color: const Color(0xFF1A1A2E),
                 onSelected: (v) {
+                  if (v == 'share_qr') _shareRoutineQr(rt);
                   if (v == 'edit') _showRoutineCreator(context, existing: rt);
                   if (v == 'delete') _confirmDelete('rutina', rt.name, () => _store.deleteRoutine(rt.id));
                   if (v == 'details') _showRoutineDetails(rt);
                 },
                 itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'share_qr', child: Row(children: [Icon(Icons.qr_code_rounded, color: Colors.white70), SizedBox(width: 8), Text('Compartir QR', style: TextStyle(color: Colors.white))])),
                   const PopupMenuItem(value: 'details', child: Text('Ver Detalles', style: TextStyle(color: Colors.white70))),
                   const PopupMenuItem(value: 'edit', child: Text('Editar', style: TextStyle(color: Colors.white70))),
                   const PopupMenuItem(value: 'delete', child: Text('Eliminar', style: TextStyle(color: Colors.redAccent))),
@@ -563,6 +567,31 @@ class _TrainingForgeScreenState extends State<TrainingForgeScreen> with SingleTi
 
   void _showRoutineDetails(ForgeRoutine rt) {
     showDialog(context: context, builder: (ctx) => _RoutineDetailDialog(routine: rt, exercises: _store.exercises));
+  }
+
+  void _shareRoutineQr(ForgeRoutine rt) {
+    final exercises = _store.exercises
+        .where((e) => rt.exerciseIds.contains(e.id))
+        .map((e) => {
+              'exerciseId': e.id,
+              'exerciseName': e.name,
+              'muscleGroup': e.primaryMuscle,
+              'sets': 3,
+              'reps': '10-12',
+              'restSeconds': 90,
+            })
+        .toList();
+    ShareRoutineQrDialog.show(
+      context,
+      routineId: rt.id,
+      routineName: rt.name,
+      description: rt.description,
+      difficulty: rt.difficulty,
+      estimatedDuration: rt.estimatedMinutes,
+      exercises: exercises,
+      gymId: AuthStateNotifier.instance.profile?.gymId?.value,
+      createdBy: rt.gymCreator,
+    );
   }
 
   void _showProgramDetails(ForgeProgram pg) {

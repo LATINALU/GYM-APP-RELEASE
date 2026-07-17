@@ -202,6 +202,12 @@ class _SidebarState extends State<_Sidebar> {
                   isSelected: location == '/owner/retention',
                   onTap: () => context.go('/owner/retention'),
                 ),
+                _SidebarItem(
+                  icon: Icons.monitor_rounded,
+                  label: 'Kiosko de Rutinas',
+                  isSelected: location == '/kiosk/routines',
+                  onTap: () => context.go('/kiosk/routines'),
+                ),
                 const SizedBox(height: 24),
                 const _SidebarSectionTitle(title: 'BUSINESS & FINANCES'),
                 _SidebarItem(

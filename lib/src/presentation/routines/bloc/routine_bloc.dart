@@ -1,9 +1,11 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../domain/entities/entities.dart';
+import '../../../domain/data/dataset_exercise_catalog.dart';
 import '../../../domain/data/exercise_catalog.dart';
 import '../../../domain/ports/input/manage_routine_usecase_port.dart';
 import '../../../domain/value_objects/value_objects.dart';
+import '../../../application/use_cases/maintain_routines_usecase.dart';
 
 // === STATES ===
 
@@ -145,9 +147,19 @@ class RoutineSuccess extends RoutineState {
 
 class RoutineError extends RoutineState {
   final String message;
-  
+
   const RoutineError(this.message);
-  
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Operación de mantenimiento (purga o seed) completada
+class RoutineMaintenanceSuccess extends RoutineState {
+  final String message;
+
+  const RoutineMaintenanceSuccess(this.message);
+
   @override
   List<Object?> get props => [message];
 }
@@ -274,14 +286,23 @@ class DuplicateRoutineRequested extends RoutineEvent {
   const DuplicateRoutineRequested(this.originalId, this.newName, this.createdBy);
 }
 
+/// Crear las rutinas predefinidas del dataset
+class SeedRoutinesRequested extends RoutineEvent {
+  final UserId createdBy;
+  const SeedRoutinesRequested(this.createdBy);
+}
+
 // === BLOC ===
 
 class RoutineBloc extends Bloc<RoutineEvent, RoutineState> {
   final ManageRoutineUseCasePort _manageRoutineUseCase;
-  
+  final SeedRoutinesUseCase? _seedRoutinesUseCase;
+
   RoutineBloc({
     required ManageRoutineUseCasePort manageRoutineUseCase,
+    SeedRoutinesUseCase? seedRoutinesUseCase,
   }) : _manageRoutineUseCase = manageRoutineUseCase,
+       _seedRoutinesUseCase = seedRoutinesUseCase,
        super(RoutineInitial()) {
     on<LoadRoutines>(_onLoadRoutines);
     on<FilterRoutinesByDifficulty>(_onFilterByDifficulty);
@@ -302,6 +323,23 @@ class RoutineBloc extends Bloc<RoutineEvent, RoutineState> {
     on<SaveRoutine>(_onSaveRoutine);
     on<DeleteRoutineRequested>(_onDeleteRoutine);
     on<DuplicateRoutineRequested>(_onDuplicateRoutine);
+    on<SeedRoutinesRequested>(_onSeedRoutines);
+  }
+
+  Future<void> _onSeedRoutines(
+    SeedRoutinesRequested event, Emitter<RoutineState> emit,
+  ) async {
+    final useCase = _seedRoutinesUseCase;
+    if (useCase == null) {
+      emit(const RoutineError('Rutinas predefinidas no disponibles'));
+      return;
+    }
+    emit(RoutineLoading());
+    final result = await useCase.execute(event.createdBy);
+    result.fold(
+      (failure) => emit(RoutineError(failure.message)),
+      (r) => emit(RoutineMaintenanceSuccess(r.message)),
+    );
   }
   
   Future<void> _onLoadRoutines(
@@ -344,8 +382,12 @@ class RoutineBloc extends Bloc<RoutineEvent, RoutineState> {
   ) {
     final routine = event.routine;
     final exercises = routine.exercises.asMap().entries.map((entry) {
+      // El ejercicio persistido no guarda templateId; se resuelve por nombre
+      final templateId =
+          DatasetExerciseCatalog.templateIdForName(entry.value.name) ??
+              entry.value.name;
       return RoutineExerciseInput(
-        templateId: entry.value.name, // Usar nombre como ID temporal
+        templateId: templateId,
         order: entry.key,
         sets: entry.value.sets,
         minReps: entry.value.reps,

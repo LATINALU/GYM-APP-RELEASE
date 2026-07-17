@@ -155,15 +155,18 @@ class Exercise extends Equatable {
       id: ExerciseId.generate(),
       name: template.spanishName.isNotEmpty ? template.spanishName : template.name,
       description: template.description,
-      instructions: null,
-      imageUrl: null,
-      animationUrl: null,
+      instructions: template.tips.isNotEmpty ? template.tips.join('\n') : null,
+      imageUrl: template.imageUrl,
+      animationUrl: template.gifUrl,
       videoUrl: null,
       movementPattern: template.movementPattern,
       exerciseType: template.exerciseType,
       equipment: template.equipment,
       difficulty: template.difficulty,
-      heatmap: MuscleHeatmap({template.primaryMuscle.name: 0.9}),
+      heatmap: MuscleHeatmap({
+        for (final m in template.secondaryMuscles) m.name: 0.5,
+        template.primaryMuscle.name: 0.9,
+      }),
       recommendedRepRange: template.recommendedRepRanges?.first,
       estimatedCalories: null,
       isActive: true,
@@ -380,6 +383,11 @@ class ExerciseTemplate extends Equatable {
   final List<String> variants;
   final bool isUnilateral;
 
+  // Visual assets (dataset): GIF remoto y thumbnail empaquetado en assets
+  final String? gifUrl;
+  final String? imageUrl;
+  final String? thumbAsset;
+
   const ExerciseTemplate({
     required this.id,
     required this.name,
@@ -396,6 +404,9 @@ class ExerciseTemplate extends Equatable {
     this.tips = const [],
     this.variants = const [],
     this.isUnilateral = false,
+    this.gifUrl,
+    this.imageUrl,
+    this.thumbAsset,
   });
 
   /// Get display name (Spanish if available, otherwise English)

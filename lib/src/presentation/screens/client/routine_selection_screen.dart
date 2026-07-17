@@ -5,6 +5,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/theme.dart';
 import '../../bloc/app_bloc.dart';
 import '../../../domain/entities/workout_plan.dart';
+import '../../../domain/value_objects/value_objects.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 
 class RoutineSelectionScreen extends StatelessWidget {
   const RoutineSelectionScreen({super.key});
@@ -75,9 +77,41 @@ class RoutineSelectionScreen extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white38, fontSize: 13),
           ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: QuantumColors.quantumBlue,
+              side: BorderSide(
+                color: QuantumColors.quantumBlue.withValues(alpha: 0.5),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () => _openImportScanner(context),
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+            label: const Text('IMPORTAR RUTINA CON QR'),
+          ),
         ],
       ),
     );
+  }
+
+  /// Abre el escáner de QR y refresca el plan si se importó una rutina.
+  Future<void> _openImportScanner(BuildContext context) async {
+    final imported = await context.push<bool>('/client/import-routine');
+    if (imported == true && context.mounted) {
+      final auth = AuthStateNotifier.instance;
+      final uid = auth.profile?.uid;
+      final gymId = auth.profile?.gymId;
+      if (uid != null && gymId != null) {
+        context
+            .read<AppBloc>()
+            .add(RefreshAppData(userId: UserId(uid), gymId: gymId));
+      }
+    }
   }
 
   Widget _buildSliverAppBar(BuildContext context) {
@@ -85,6 +119,14 @@ class RoutineSelectionScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       expandedHeight: 120,
       pinned: true,
+      actions: [
+        IconButton(
+          tooltip: 'Importar rutina con QR',
+          icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white70),
+          onPressed: () => _openImportScanner(context),
+        ),
+        const SizedBox(width: 8),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
           'ENTRENAMIENTO',

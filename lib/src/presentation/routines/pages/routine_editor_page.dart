@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/routine_bloc.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/data/exercise_catalog.dart';
-import '../../../domain/data/exercise_gifs.dart';
 import '../../../domain/value_objects/value_objects.dart';
+import '../../widgets/exercise/exercise_gif_view.dart';
 import '../../../domain/ports/input/manage_routine_usecase_port.dart'; // Import necesario para RoutineExerciseInput
 
 /// Página de edición/creación de rutinas
@@ -426,8 +426,7 @@ class _ExerciseListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final template = ExerciseCatalog.byId(exercise.templateId);
-    final gifUrl = ExerciseGifs.getGifUrl(exercise.templateId);
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: const Color(0xFF1F2937),
@@ -439,22 +438,13 @@ class _ExerciseListItem extends StatelessWidget {
             // Drag handle
             const Icon(Icons.drag_handle, color: Colors.white38),
             const SizedBox(width: 8),
-            
-            // GIF/Imagen
-            ClipRRect(
+
+            // GIF/Imagen (offline-first)
+            ExerciseGifView(
+              exerciseKey: exercise.templateId,
+              width: 64,
+              height: 64,
               borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 64,
-                height: 64,
-                child: Image.network(
-                  gifUrl ?? ExerciseGifs.placeholder,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFF374151),
-                    child: const Icon(Icons.fitness_center, color: Colors.white38),
-                  ),
-                ),
-              ),
             ),
             const SizedBox(width: 12),
             
@@ -699,20 +689,13 @@ class _ExerciseBrowserView extends StatelessWidget {
               // Header
               Row(
                 children: [
-                  ClipRRect(
+                  ExerciseGifView(
+                    gifUrl: exercise.gifUrl,
+                    exerciseKey: exercise.id,
+                    thumbAsset: exercise.thumbAsset,
+                    width: 60,
+                    height: 60,
                     borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: Image.network(
-                        ExerciseGifs.getGifUrl(exercise.id) ?? ExerciseGifs.placeholder,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFF374151),
-                          child: const Icon(Icons.fitness_center, color: Colors.white38),
-                        ),
-                      ),
-                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -829,8 +812,6 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gifUrl = ExerciseGifs.getGifUrl(exercise.id);
-    
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -841,21 +822,17 @@ class _ExerciseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // GIF
+            // Thumbnail estático (rápido en grillas, disponible offline)
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 child: SizedBox(
                   width: double.infinity,
-                  child: Image.network(
-                    gifUrl ?? ExerciseGifs.placeholder,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: const Color(0xFF374151),
-                      child: const Center(
-                        child: Icon(Icons.fitness_center, color: Colors.white38, size: 40),
-                      ),
-                    ),
+                  child: ExerciseGifView(
+                    gifUrl: exercise.gifUrl,
+                    exerciseKey: exercise.id,
+                    thumbAsset: exercise.thumbAsset,
+                    animated: false,
                   ),
                 ),
               ),

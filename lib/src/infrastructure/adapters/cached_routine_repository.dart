@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/types/typedefs.dart';
 import '../../domain/entities/entities.dart';
+import '../../domain/ports/output/exercise_media_port.dart';
 import '../../domain/ports/output/routine_repository_port.dart';
 import '../../domain/value_objects/value_objects.dart';
 import '../services/local_cache_service.dart';
@@ -12,14 +15,34 @@ import '../mappers/mappers.dart';
 /// Decorator around [FirebaseRoutineRepository] that adds offline-first caching.
 /// When online: fetches from Firestore and updates the local cache.
 /// When offline: returns cached data from Hive, or a failure if never synced.
+///
+/// Además, tras cada sync exitoso hace prefetch en segundo plano de los GIFs
+/// de los ejercicios, para que las rutinas se puedan revisar sin internet.
 class CachedRoutineRepository implements RoutineRepositoryPort {
   final FirebaseRoutineRepository _remote;
   final LocalCacheService _cache;
   final ConnectivityService _connectivity;
+  final ExerciseMediaPort? _media;
 
   static const String _collection = 'routines';
 
-  CachedRoutineRepository(this._remote, this._cache, this._connectivity);
+  CachedRoutineRepository(
+    this._remote,
+    this._cache,
+    this._connectivity, {
+    ExerciseMediaPort? media,
+  }) : _media = media;
+
+  /// Prefetch silencioso de GIFs de las rutinas (fire-and-forget)
+  void _prefetchMedia(Iterable<WorkoutRoutine> routines) {
+    final media = _media;
+    if (media == null) return;
+    final urls = routines
+        .expand((r) => r.exercises)
+        .map((e) => e.animationUrl)
+        .whereType<String>();
+    unawaited(media.prefetch(urls));
+  }
 
   @override
   FutureResult<WorkoutRoutine> findById(RoutineId id) async {
@@ -37,6 +60,7 @@ class CachedRoutineRepository implements RoutineRepositoryPort {
     final result = await _remote.findById(id);
     result.fold((_) => null, (routine) {
       _cache.put(_collection, id.value, RoutineMapper.toFirestore(routine));
+      _prefetchMedia([routine]);
     });
     return result;
   }
@@ -66,6 +90,7 @@ class CachedRoutineRepository implements RoutineRepositoryPort {
           .toList();
       _cache.putCollection(cacheKey, items);
       _cache.setLastSync(cacheKey, DateTime.now());
+      _prefetchMedia(routines);
     });
     return result;
   }
@@ -95,6 +120,7 @@ class CachedRoutineRepository implements RoutineRepositoryPort {
           .toList();
       _cache.putCollection(cacheKey, items);
       _cache.setLastSync(cacheKey, DateTime.now());
+      _prefetchMedia(routines);
     });
     return result;
   }
@@ -110,6 +136,7 @@ class CachedRoutineRepository implements RoutineRepositoryPort {
     final result = await _remote.save(routine);
     result.fold((_) => null, (_) {
       _cache.put(_collection, routine.id.value, RoutineMapper.toFirestore(routine));
+      _prefetchMedia([routine]);
     });
     return result;
   }
