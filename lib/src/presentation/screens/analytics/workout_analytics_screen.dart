@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/workout_analysis_service.dart';
 
 class WorkoutAnalyticsScreen extends StatefulWidget {
@@ -24,9 +25,11 @@ class _WorkoutAnalyticsScreenState extends State<WorkoutAnalyticsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final analytics = await _svc.getAnalytics('current-user');
-      final prs = await _svc.getPersonalRecords('current-user');
-      final frequency = await _svc.getFrequencyByDay('current-user');
+      final uid = AuthStateNotifier.instance.profile?.uid;
+      if (uid == null) throw StateError('Sesión no disponible');
+      final analytics = await _svc.getAnalytics(uid);
+      final prs = await _svc.getPersonalRecords(uid);
+      final frequency = await _svc.getFrequencyByDay(uid);
       if (!mounted) return;
       setState(() {
         _analytics = analytics;

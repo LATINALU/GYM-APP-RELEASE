@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/volume_tracking_service.dart';
 import '../../../domain/entities/muscle_volume.dart';
 import '../../../infrastructure/config/di.dart';
@@ -21,11 +22,16 @@ class _VolumeTrackingScreenState extends State<VolumeTrackingScreen> {
     _load();
   }
 
+  String? get _uid => AuthStateNotifier.instance.profile?.uid;
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    _dist = await _svc.getDistribution('current-user');
-    _comparison = await _svc.compareWeeks('current-user');
-    setState(() => _loading = false);
+    final uid = _uid;
+    if (uid != null) {
+      _dist = await _svc.getDistribution(uid);
+      _comparison = await _svc.compareWeeks(uid);
+    }
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -388,8 +394,10 @@ class _VolumeTrackingScreenState extends State<VolumeTrackingScreen> {
                         child: ElevatedButton(
                           onPressed: () async {
                             try {
+                              final uid = _uid;
+                              if (uid == null) return;
                               await _svc.logSet(
-                                userId: 'current-user',
+                                userId: uid,
                                 muscle: selected,
                                 reps: int.tryParse(repsC.text) ?? 10,
                                 weightKg: double.tryParse(weightC.text) ?? 0,

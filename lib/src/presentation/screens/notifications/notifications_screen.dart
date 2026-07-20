@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/notification_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -15,10 +16,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() { super.initState(); _load(); }
 
+  String? get _uid => AuthStateNotifier.instance.profile?.uid;
+
   Future<void> _load() async {
     setState(() => _loading = true);
-    _notifs = await _svc.getNotifications('current-user');
-    setState(() => _loading = false);
+    final uid = _uid;
+    _notifs = uid != null ? await _svc.getNotifications(uid) : [];
+    if (mounted) setState(() => _loading = false);
   }
 
   @override
@@ -32,7 +36,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           title: const Text('Notificaciones', style: TextStyle(fontWeight: FontWeight.w700)),
           actions: [
             if (unread > 0) TextButton(onPressed: () async {
-              await _svc.markAllRead('current-user'); _load();
+              final uid = _uid;
+              if (uid != null) { await _svc.markAllRead(uid); _load(); }
             }, child: const Text('Marcar todo leído', style: TextStyle(color: Color(0xFF6C63FF), fontSize: 12))),
           ]),
         if (unread > 0) SliverToBoxAdapter(child: Container(

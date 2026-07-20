@@ -101,13 +101,20 @@ class WorkoutAnalysisService {
   /// Get personal records
   Future<List<Map<String, dynamic>>> getPersonalRecords(String userId) async {
     try {
-      final snap =
-          await _firestore
-              .collection('personal_records')
-              .where('userId', isEqualTo: userId)
-              .get();
+      // La colección personal_records puede no existir o estar bloqueada
+      // en despliegues viejos de reglas: en ese caso se calculan los PRs
+      // desde las sesiones en vez de fallar.
+      QuerySnapshot<Map<String, dynamic>>? snap;
+      try {
+        snap = await _firestore
+            .collection('personal_records')
+            .where('userId', isEqualTo: userId)
+            .get();
+      } catch (_) {
+        snap = null;
+      }
 
-      if (snap.docs.isNotEmpty) {
+      if (snap != null && snap.docs.isNotEmpty) {
         final records =
             snap.docs
                 .map((doc) => _normalizePersonalRecord(doc.data()))

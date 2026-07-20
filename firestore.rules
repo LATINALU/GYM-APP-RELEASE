@@ -1139,6 +1139,28 @@ service cloud.firestore {
       );
     }
 
+    // Récords personales del usuario (workout_analysis_service)
+    match /personal_records/{recordId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        request.resource.data.userId == uid()
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.userId is string &&
+          resource.data.userId == uid()
+        )
+      );
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // GAMIFICATION (XP, rachas, logros — doc por userId)
     // ═══════════════════════════════════════════════════════════════════

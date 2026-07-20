@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/recovery_service.dart';
 import '../../../infrastructure/config/di.dart';
 
@@ -18,8 +19,9 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    _r = await _svc.getReadiness('current-user');
-    setState(() => _loading = false);
+    final uid = AuthStateNotifier.instance.profile?.uid;
+    _r = uid != null ? await _svc.getReadiness(uid) : {};
+    if (mounted) setState(() => _loading = false);
   }
 
   Color _scoreColor(double s) =>

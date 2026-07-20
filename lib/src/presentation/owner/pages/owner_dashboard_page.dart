@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../common/widgets/widgets.dart';
 import '../../routines/routines.dart';
 import '../../../infrastructure/config/di.dart';
@@ -72,7 +73,9 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
         return BlocProvider(
           create: (_) => getIt<RoutineBloc>(),
           child: RoutineManagementPage(
-            userId: widget.userId ?? 'owner-1',
+            userId: widget.userId ??
+                AuthStateNotifier.instance.profile?.uid ??
+                '',
             onBack: () => setState(() => _currentIndex = 0),
           ),
         );

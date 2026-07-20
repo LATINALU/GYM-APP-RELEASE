@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/nutrition_service.dart';
 import '../../../domain/entities/nutrition_plan.dart';
 import '../../../../src/infrastructure/config/di.dart';
@@ -24,11 +25,19 @@ class _NutritionTrackingScreenState extends State<NutritionTrackingScreen> {
     _loadData();
   }
 
+  String? get _uid => AuthStateNotifier.instance.profile?.uid;
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final plan = await _nutritionService.getActivePlan('current-user');
-      final summary = await _nutritionService.getDailySummary('current-user', DateTime.now());
+      final uid = _uid;
+      if (uid == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final plan = await _nutritionService.getActivePlan(uid);
+      final summary =
+          await _nutritionService.getDailySummary(uid, DateTime.now());
       setState(() {
         _plan = plan;
         _dailySummary = summary;

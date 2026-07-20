@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../application/services/measurement_service.dart';
 import '../../../domain/entities/body_measurement.dart';
 import '../../../infrastructure/config/di.dart';
@@ -27,11 +28,18 @@ class _BodyMeasurementsScreenState extends State<BodyMeasurementsScreen> {
     _loadData();
   }
 
+  String? get _uid => AuthStateNotifier.instance.profile?.uid;
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final history = await _service.getHistory('current-user');
-      final progress = await _service.getProgressSummary('current-user');
+      final uid = _uid;
+      if (uid == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      final history = await _service.getHistory(uid);
+      final progress = await _service.getProgressSummary(uid);
       setState(() {
         _history = history;
         _progress = progress;
@@ -495,14 +503,17 @@ class _BodyMeasurementsScreenState extends State<BodyMeasurementsScreen> {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () async {
+                      final uid = _uid;
+                      if (uid == null) return;
                       final measurement = BodyMeasurement.create(
-                        userId: 'current-user',
+                        userId: uid,
                         weightKg: double.tryParse(weightController.text),
                         bodyFatPercentage: double.tryParse(fatController.text),
                         waistCm: double.tryParse(waistController.text),
                         chestCm: double.tryParse(chestController.text),
                         bicepsRightCm: double.tryParse(bicepsController.text),
-                        heightCm: 178,
+                        heightCm:
+                            AuthStateNotifier.instance.profile?.height ?? 170,
                       );
                       try {
                         await _service.saveMeasurement(measurement);
