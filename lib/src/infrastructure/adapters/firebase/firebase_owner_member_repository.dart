@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../domain/services/membership_renewal.dart';
+
 /// Repository for owner-level member management operations.
 /// Handles the gyms/{gymId}/members subcollection and audit_logs.
 class FirebaseOwnerMemberRepository {
@@ -116,6 +118,83 @@ class FirebaseOwnerMemberRepository {
       'status': 'active',
       'gymId': gymId,
     });
+  }
+
+  /// Load the gym's membership plans (raw maps for the payment dialog).
+  Future<List<Map<String, dynamic>>> loadMembershipPlans(String gymId) async {
+    final snapshot = await _firestore
+        .collection('membership_plans')
+        .where('gymId', isEqualTo: gymId)
+        .get();
+
+    final plans = snapshot.docs.map((doc) {
+      final d = doc.data();
+      return {
+        'id': doc.id,
+        'name': d['name'] ?? 'Sin nombre',
+        'price': (d['price'] as num?)?.toDouble() ?? 0.0,
+        'durationDays': (d['durationDays'] as num?)?.toInt() ?? 30,
+      };
+    }).toList()
+      ..sort((a, b) =>
+          (a['price'] as double).compareTo(b['price'] as double));
+    return plans;
+  }
+
+  /// Registra el cobro de una membresía de forma atómica:
+  /// crea el pago (type 'subscription' → alimenta BI/finanzas) y renueva
+  /// al miembro (status Activos, expiry extendido, descongelado).
+  /// Devuelve el nuevo vencimiento formateado dd/MM/yyyy.
+  Future<String> registerMembershipPayment({
+    required String gymId,
+    required String memberId,
+    required String memberName,
+    required String planName,
+    required double amount,
+    required int durationDays,
+    required String method,
+    required String registeredBy,
+    String? currentExpiry,
+  }) async {
+    final newExpiry = MembershipRenewal.computeNewExpiry(
+      currentExpiry: currentExpiry,
+      days: durationDays,
+    );
+    final formatted = MembershipRenewal.formatExpiry(newExpiry);
+
+    final batch = _firestore.batch();
+
+    final memberRef = _firestore
+        .collection('gyms')
+        .doc(gymId)
+        .collection('members')
+        .doc(memberId);
+    batch.update(memberRef, {
+      'status': 'Activos',
+      'isFrozen': false,
+      'plan': planName,
+      'expiry': formatted,
+      'lastPaymentAt': FieldValue.serverTimestamp(),
+    });
+
+    final paymentRef = _firestore.collection('payments').doc();
+    batch.set(paymentRef, {
+      'gymId': gymId,
+      'type': 'subscription',
+      'amount': amount,
+      'date': Timestamp.now(),
+      'memberId': memberId,
+      'memberName': memberName,
+      'plan': planName,
+      'durationDays': durationDays,
+      'method': method,
+      'registeredBy': registeredBy,
+      'concept': 'Membresía $planName',
+      'status': 'paid',
+    });
+
+    await batch.commit();
+    return formatted;
   }
 
   /// Load dashboard KPIs for a gym.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../../../infrastructure/config/di.dart';
 import '../../../infrastructure/adapters/firebase/firebase_owner_member_repository.dart';
+import '../../../domain/services/membership_renewal.dart';
 import '../../theme/quantum_colors.dart';
 
 class OwnerMembersScreen extends StatefulWidget {
@@ -236,9 +237,9 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
             )),
             const PopupMenuItem(value: 'renew', child: Row(
               children: [
-                Icon(Icons.refresh_rounded, color: QuantumColors.matrixCyan, size: 18),
+                Icon(Icons.payments_rounded, color: QuantumColors.matrixCyan, size: 18),
                 SizedBox(width: 12),
-                Text('Renovar', style: TextStyle(color: QuantumColors.matrixCyan)),
+                Text('Cobrar / Renovar', style: TextStyle(color: QuantumColors.matrixCyan)),
               ],
             )),
             PopupMenuItem(value: 'freeze', child: Row(
@@ -344,81 +345,247 @@ class _OwnerMembersScreenState extends State<OwnerMembersScreen> {
     );
   }
 
-  void _renewMember(_MemberData member) {
-    final planCtrl = TextEditingController(text: member.plan);
-    final monthsCtrl = TextEditingController(text: '1');
+  /// Cobro de membresía real: registra el pago en `payments` (alimenta el
+  /// BI y las finanzas) y renueva el vencimiento del miembro en Firestore.
+  Future<void> _renewMember(_MemberData member) async {
+    final gymId = AuthStateNotifier.instance.profile?.gymId?.value;
+    final registeredBy = AuthStateNotifier.instance.profile?.uid;
+    if (gymId == null || registeredBy == null || member.id == null) return;
 
-    showDialog(
+    final repo = getIt<FirebaseOwnerMemberRepository>();
+    List<Map<String, dynamic>> plans = const [];
+    try {
+      plans = await repo.loadMembershipPlans(gymId);
+    } catch (_) {
+      // Sin planes configurados: el diálogo permite monto personalizado
+    }
+    if (!mounted) return;
+
+    // null = monto/duración personalizados
+    Map<String, dynamic>? selectedPlan = plans.isNotEmpty ? plans.first : null;
+    final amountCtrl = TextEditingController(
+        text: selectedPlan != null
+            ? (selectedPlan['price'] as double).toStringAsFixed(0)
+            : '');
+    final monthsCtrl = TextEditingController(text: '1');
+    var method = 'Efectivo';
+    var saving = false;
+
+    int durationDays() => selectedPlan != null
+        ? selectedPlan!['durationDays'] as int
+        : (int.tryParse(monthsCtrl.text) ?? 1) * 30;
+
+    String previewExpiry() => MembershipRenewal.formatExpiry(
+          MembershipRenewal.computeNewExpiry(
+            currentExpiry: member.expiry,
+            days: durationDays(),
+          ),
+        );
+
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: QuantumColors.voidGray,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Renovar: ${member.name}', style: const TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: planCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: 'Plan', labelStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.card_membership, color: QuantumColors.holoPurple, size: 20),
-                filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: QuantumColors.voidGray,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Cobrar membresía: ${member.name}',
+              style: const TextStyle(color: Colors.white, fontSize: 18)),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (plans.isNotEmpty) ...[
+                  DropdownButtonFormField<Map<String, dynamic>?>(
+                    initialValue: selectedPlan,
+                    dropdownColor: QuantumColors.voidGray,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Plan',
+                      labelStyle: const TextStyle(color: Colors.white38),
+                      prefixIcon: const Icon(Icons.card_membership,
+                          color: QuantumColors.holoPurple, size: 20),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none),
+                    ),
+                    items: [
+                      for (final p in plans)
+                        DropdownMenuItem(
+                          value: p,
+                          child: Text(
+                              '${p['name']} — \$${(p['price'] as double).toStringAsFixed(0)} (${p['durationDays']} días)'),
+                        ),
+                      const DropdownMenuItem(
+                          value: null, child: Text('Personalizado…')),
+                    ],
+                    onChanged: (p) => setDialogState(() {
+                      selectedPlan = p;
+                      if (p != null) {
+                        amountCtrl.text =
+                            (p['price'] as double).toStringAsFixed(0);
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: amountCtrl,
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setDialogState(() {}),
+                  decoration: InputDecoration(
+                    labelText: 'Monto cobrado (\$)',
+                    labelStyle: const TextStyle(color: Colors.white38),
+                    prefixIcon: const Icon(Icons.attach_money,
+                        color: QuantumColors.matrixCyan, size: 20),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none),
+                  ),
+                ),
+                if (selectedPlan == null) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: monthsCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: InputDecoration(
+                      labelText: 'Meses a renovar',
+                      labelStyle: const TextStyle(color: Colors.white38),
+                      prefixIcon: const Icon(Icons.calendar_month,
+                          color: QuantumColors.holoPurple, size: 20),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const Text('Método de pago',
+                    style: TextStyle(color: Colors.white38, fontSize: 12)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final m in const [
+                      'Efectivo',
+                      'Transferencia',
+                      'Tarjeta'
+                    ])
+                      ChoiceChip(
+                        label: Text(m),
+                        selected: method == m,
+                        selectedColor: QuantumColors.matrixCyan,
+                        backgroundColor: Colors.white.withValues(alpha: 0.05),
+                        labelStyle: TextStyle(
+                            color:
+                                method == m ? Colors.black : Colors.white54,
+                            fontSize: 12),
+                        onSelected: (_) =>
+                            setDialogState(() => method = m),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: QuantumColors.matrixCyan.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Vence: ${member.expiry}  →  Nuevo vencimiento: ${previewExpiry()}',
+                    style: const TextStyle(
+                        color: QuantumColors.matrixCyan,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: monthsCtrl,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Meses a renovar', labelStyle: const TextStyle(color: Colors.white38),
-                prefixIcon: const Icon(Icons.calendar_month, color: QuantumColors.holoPurple, size: 20),
-                filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: Colors.white38)),
+            ),
+            ElevatedButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final amount =
+                          double.tryParse(amountCtrl.text.trim()) ?? -1;
+                      if (amount < 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Ingresa un monto válido')));
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      try {
+                        final newExpiry =
+                            await repo.registerMembershipPayment(
+                          gymId: gymId,
+                          memberId: member.id!,
+                          memberName: member.name,
+                          planName: selectedPlan != null
+                              ? selectedPlan!['name'] as String
+                              : member.plan,
+                          amount: amount,
+                          durationDays: durationDays(),
+                          method: method,
+                          registeredBy: registeredBy,
+                          currentExpiry: member.expiry,
+                        );
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                        _logAudit(
+                            'Cobró \$${amount.toStringAsFixed(0)} ($method) a ${member.name} — vence $newExpiry',
+                            'MEMBRESÍA');
+                        _loadMembersFromFirestore();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  '✓ Pago registrado. ${member.name} renovado hasta $newExpiry'),
+                              backgroundColor: QuantumColors.matrixCyan,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => saving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                              content:
+                                  Text('No se pudo registrar el pago: $e')));
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: QuantumColors.matrixCyan),
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Registrar cobro'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white38)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final months = int.tryParse(monthsCtrl.text) ?? 1;
-              final newExpiry = DateTime.now().add(Duration(days: months * 30));
-              final formattedExpiry = '${newExpiry.day.toString().padLeft(2, '0')}/${newExpiry.month.toString().padLeft(2, '0')}/${newExpiry.year}';
-              
-              setState(() {
-                final idx = _members.indexOf(member);
-                if (idx >= 0) {
-                  _members[idx] = member.copyWith(
-                    plan: planCtrl.text,
-                    expiry: formattedExpiry,
-                    status: 'Activos',
-                    isFrozen: false,
-                  );
-                }
-              });
-              
-              Navigator.pop(ctx);
-              _logAudit('Renovó membresía de ${member.name} por $months meses', 'MEMBRESÍA');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('✓ ${member.name} renovado hasta $formattedExpiry'),
-                  backgroundColor: QuantumColors.matrixCyan,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.matrixCyan),
-            child: const Text('Renovar'),
-          ),
-        ],
       ),
     );
   }
