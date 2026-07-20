@@ -6,7 +6,6 @@ export 'workout_routine.dart';
 export 'routine_assignment.dart';
 export 'check_in.dart';
 export 'app_settings.dart';
-export 'home_content.dart';
 
 // Fitness tracking entities
 export 'user_fitness_profile.dart' hide BodyMeasurement;

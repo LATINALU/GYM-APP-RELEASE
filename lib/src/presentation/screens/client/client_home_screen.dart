@@ -467,40 +467,55 @@ class ClientHomeScreen extends StatelessWidget {
   }
 
   Widget _buildStats(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tu Progreso',
-            style: QuantumTypography.h4.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
+    return BlocBuilder<AppBloc, AppState>(
+      builder: (context, state) {
+        final loaded = state is AppLoaded ? state : null;
+        final now = DateTime.now();
+        final workoutsThisMonth = loaded?.recentSessions
+                .where((s) =>
+                    s.isCompleted &&
+                    s.date.year == now.year &&
+                    s.date.month == now.month)
+                .length ??
+            0;
+        final streak = loaded?.currentStreak ?? 0;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatCard(
-                'Asistencias',
-                '12',
-                'este mes',
-                Icons.local_fire_department_rounded,
-                QuantumColors.matrixCyan,
+              Text(
+                'Tu Progreso',
+                style: QuantumTypography.h4.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(width: 12),
-              _buildStatCard(
-                'Racha',
-                '5',
-                'días seguidos',
-                Icons.auto_graph_rounded,
-                QuantumColors.holoPurple,
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _buildStatCard(
+                    'Entrenamientos',
+                    '$workoutsThisMonth',
+                    'este mes',
+                    Icons.local_fire_department_rounded,
+                    QuantumColors.matrixCyan,
+                  ),
+                  const SizedBox(width: 12),
+                  _buildStatCard(
+                    'Racha',
+                    '$streak',
+                    streak == 1 ? 'día seguido' : 'días seguidos',
+                    Icons.auto_graph_rounded,
+                    QuantumColors.holoPurple,
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

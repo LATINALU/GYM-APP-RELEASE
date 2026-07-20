@@ -11,7 +11,6 @@ export 'manage_routine_usecase.dart';
 export 'maintain_routines_usecase.dart';
 export 'user/approve_user_usecase.dart';
 export 'user/update_profile_usecase.dart';
-export 'gym/get_home_content_usecase.dart';
 export 'review_registration_usecase.dart';
 export 'client/get_client_profile_usecase.dart';
 export 'client/import_routine_from_qr_usecase.dart';

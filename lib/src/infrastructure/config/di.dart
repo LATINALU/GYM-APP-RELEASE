@@ -240,16 +240,6 @@ Future<void> configureDependencies() async {
       () => UpdateProfileUseCase(getIt<AuthRepositoryPort>()),
     );
   }
-  if (!getIt.isRegistered<GetHomeContentUseCase>()) {
-    getIt.registerFactory<GetHomeContentUseCase>(
-      () => GetHomeContentUseCase(
-        gymRepository: getIt<GymRepositoryPort>(),
-        assignmentRepository: getIt<AssignmentRepositoryPort>(),
-        routineRepository: getIt<RoutineRepositoryPort>(),
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // NEW REPOSITORIES (Recovery & Volume)
   // ═══════════════════════════════════════════════════════════════════════════
