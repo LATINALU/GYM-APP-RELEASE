@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -34,11 +35,15 @@ void main() async {
   // Initialize Firebase (real auth, Firestore, etc.)
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Initialize App Check (Play Integrity on Android, Device Check on iOS)
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.playIntegrity,
-    appleProvider: AppleProvider.deviceCheck,
-  );
+  // Initialize App Check (Play Integrity on Android, Device Check on iOS).
+  // En web requiere registrar un site key de ReCaptcha en la consola de
+  // Firebase y pasarlo como ReCaptchaV3Provider — hasta entonces se omite.
+  if (!kIsWeb) {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: AndroidProvider.playIntegrity,
+      appleProvider: AppleProvider.deviceCheck,
+    );
+  }
 
   // Cargar el dataset de ejercicios (1,324 ejercicios con GIFs e
   // instrucciones en español) y fusionarlo con el catálogo estático

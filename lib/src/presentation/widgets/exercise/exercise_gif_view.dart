@@ -1,12 +1,12 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../domain/data/dataset_exercise_catalog.dart';
 import '../../../domain/data/exercise_gifs.dart';
 import '../../../domain/ports/output/exercise_media_port.dart';
+import 'local_gif_image.dart';
 
 /// Vista unificada de media de un ejercicio, con soporte offline completo.
 ///
@@ -88,6 +88,7 @@ class _ExerciseGifViewState extends State<ExerciseGifView> {
   }
 
   Future<void> _resolveLocal() async {
+    if (kIsWeb) return; // sin almacenamiento local en web
     final url = _resolvedGifUrl;
     if (url == null) return;
     if (!GetIt.I.isRegistered<ExerciseMediaPort>()) return;
@@ -120,15 +121,26 @@ class _ExerciseGifViewState extends State<ExerciseGifView> {
   Widget _buildMedia() {
     // GIF ya descargado: servir desde disco, cero red
     if (widget.animated && _localGifPath != null) {
-      return Image.file(
-        File(_localGifPath!),
-        fit: widget.fit,
-        errorBuilder: (_, __, ___) => _thumbnailOrPlaceholder(),
+      return buildLocalGifImage(
+        _localGifPath!,
+        widget.fit,
+        _thumbnailOrPlaceholder,
       );
     }
 
     final thumb = _resolvedThumbAsset;
     final gifUrl = _resolvedGifUrl;
+
+    // Web: sin disco local — GIF por red con el caché del navegador,
+    // con el thumbnail de assets como placeholder
+    if (kIsWeb && widget.animated && gifUrl != null) {
+      return CachedNetworkImage(
+        imageUrl: gifUrl,
+        fit: widget.fit,
+        placeholder: (_, __) => _thumbnailOrPlaceholder(),
+        errorWidget: (_, __, ___) => _thumbnailOrPlaceholder(),
+      );
+    }
 
     // Sin GIF local aún: thumbnail del APK al instante; el GIF aparece solo
     // cuando la descarga en 2º plano termina (ver _resolveLocal)

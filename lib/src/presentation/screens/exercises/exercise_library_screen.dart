@@ -1,4 +1,5 @@
 /// Exercise Library Screen - Browse and search all exercises
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../theme/theme.dart';
@@ -59,11 +60,13 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           style: QuantumTypography.h1.copyWith(color: Colors.white),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white70),
-            tooltip: 'Descargar biblioteca para uso sin internet',
-            onPressed: _downloadFullLibrary,
-          ),
+          // En web no hay almacenamiento local de GIFs (se sirven por red)
+          if (!kIsWeb)
+            IconButton(
+              icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white70),
+              tooltip: 'Descargar biblioteca para uso sin internet',
+              onPressed: _downloadFullLibrary,
+            ),
           IconButton(
             icon: const Icon(Icons.filter_list, color: Colors.white70),
             onPressed: _showFilters,

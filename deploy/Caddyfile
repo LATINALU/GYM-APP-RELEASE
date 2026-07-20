@@ -1,0 +1,7 @@
+# Reemplaza TU-DOMINIO.com por tu dominio real (con el registro A apuntando
+# a la IP del VPS). Caddy emite y renueva el certificado TLS solo.
+
+TU-DOMINIO.com {
+    reverse_proxy web:80
+    encode gzip
+}

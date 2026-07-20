@@ -15,7 +15,7 @@ import '../../application/services/nutrition_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/local/local_exercise_repository.dart';
-import '../adapters/local/local_exercise_media_service.dart';
+import '../adapters/local/exercise_media_factory.dart';
 import '../adapters/cached_assignment_repository.dart';
 import '../adapters/cached_routine_repository.dart';
 import '../adapters/cached_check_in_repository.dart';
@@ -81,7 +81,7 @@ Future<void> configureDependencies() async {
   // Media local de ejercicios (GIFs persistidos para uso sin internet)
   if (!getIt.isRegistered<ExerciseMediaPort>()) {
     getIt.registerLazySingleton<ExerciseMediaPort>(
-      () => LocalExerciseMediaService(client: getIt<http.Client>()),
+      () => createExerciseMediaService(getIt<http.Client>()),
     );
   }
 
