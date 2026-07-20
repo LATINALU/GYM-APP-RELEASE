@@ -78,7 +78,6 @@ export 'timer/training_timer_screen.dart';
 export 'social/community_feed_screen.dart';
 
 // Owner screens
-export 'owner/pos_screen.dart';
 export 'owner/owner_members_screen.dart';
 
 // Leaderboard

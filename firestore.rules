@@ -936,6 +936,31 @@ service cloud.firestore {
     // LOYALTY PROGRAMS (gym-scoped, owner-managed)
     // ═══════════════════════════════════════════════════════════════════
 
+    // Promociones del gym (descuentos, 2x1, referidos) — gestionadas por el owner
+    match /promotions/{promoId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          hasGymRole(resource.data.gymId)
+        )
+      );
+      allow create: if isAuth() && (
+        isAdmin() ||
+        (
+          request.resource.data.gymId is string &&
+          isOwnerOfGym(request.resource.data.gymId)
+        )
+      );
+      allow update, delete: if isAuth() && (
+        isAdmin() ||
+        (
+          resource.data.gymId is string &&
+          isOwnerOfGym(resource.data.gymId)
+        )
+      );
+    }
+
     match /loyalty_programs/{programId} {
       allow read: if isAuth() && (
         isAdmin() ||

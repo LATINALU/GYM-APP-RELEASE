@@ -17,6 +17,7 @@ import '../screens/admin/admin_exercise_library_screen.dart';
 import '../screens/owner/admin_layout.dart';
 import '../screens/owner/gym_info_screen.dart';
 import '../screens/owner/membership_plans_screen.dart';
+import '../screens/owner/promotions_screen.dart';
 import '../screens/owner/owner_exercise_library_screen.dart';
 import '../screens/owner/exercise_atlas_screen.dart';
 import '../screens/owner/training_forge_screen.dart';
@@ -260,6 +261,11 @@ class AppRouter {
             path: '/owner/plans',
             name: 'ownerPlans',
             builder: (context, state) => const MembershipPlansScreen(),
+          ),
+          GoRoute(
+            path: '/owner/promotions',
+            name: 'ownerPromotions',
+            builder: (context, state) => const PromotionsScreen(),
           ),
           GoRoute(
             path: '/owner/exercises',

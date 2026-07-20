@@ -27,6 +27,8 @@ class FirebaseOwnerMemberRepository {
         'email': d['email'],
         'phone': d['phone'],
         'isFrozen': d['isFrozen'] ?? false,
+        // Fecha de alta (para cohortes de retención en el BI)
+        'registeredAt': (d['registeredAt'] as Timestamp?)?.toDate(),
       };
     }).toList();
   }

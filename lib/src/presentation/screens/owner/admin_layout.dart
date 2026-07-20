@@ -217,6 +217,12 @@ class _SidebarState extends State<_Sidebar> {
                   onTap: () => context.go('/owner/dashboard-bi'),
                 ),
                 _SidebarItem(
+                  icon: Icons.local_offer_rounded,
+                  label: 'Promociones',
+                  isSelected: location == '/owner/promotions',
+                  onTap: () => context.go('/owner/promotions'),
+                ),
+                _SidebarItem(
                   icon: Icons.point_of_sale_rounded,
                   label: 'Punto de Venta',
                   isSelected: location == '/owner/pos-sales',
