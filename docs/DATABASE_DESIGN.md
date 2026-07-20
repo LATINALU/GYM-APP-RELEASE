@@ -1,5 +1,10 @@
 # 🗄️ DISEÑO DE BASE DE DATOS VPS - QUANTUM GYM
 
+> **⚠️ Estado: PROPUESTA FUTURA (no implementada).** El backend actual es
+> **Firebase/Firestore** (esquema real en `APP_CONTEXT.md` y `firestore.rules`).
+> El despliegue actual en VPS es solo el frontend web estático (`deploy/README.md`).
+> Este documento describe una posible migración a PostgreSQL si algún día se decide.
+
 ## Arquitectura: PostgreSQL en VPS + API REST (Supabase/Custom Backend)
 
 ### ¿Por qué migrar de Firebase a VPS?

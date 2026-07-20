@@ -1,111 +1,111 @@
 # 🧠 CONTEXTO TÉCNICO Y FUNCIONAL: QUANTUM GYM
 
-Este documento es la referencia definitiva para entender la estructura, navegación y lógica de negocio de la aplicación.
+Referencia para entender la estructura, navegación y lógica de negocio de la aplicación. (Actualizado: julio 2026.)
 
 ---
 
 ## 🏛️ ARQUITECTURA: Clean + Hexagonal
-La aplicación utiliza una arquitectura separada por capas para permitir el intercambio de tecnologías (ej. cambiar Firebase por otra DB) sin afectar la lógica de negocio.
 
-### Capas:
-1.  **Dominio (`lib/src/01-domain`)**: 
-    - Contiene los modelos base (`entities`).
-    - Define interfaces para repositorios (`ports/output`).
-    - Define interfaces para casos de uso (`ports/input`).
-    - **No tiene dependencias externas.**
+### Capas (rutas reales):
+1. **Dominio (`lib/src/domain`)**
+   - Entidades (`entities/`), value objects (`value_objects/`).
+   - Puertos de salida (`ports/output`) y de entrada (`ports/input`).
+   - Datos semilla: `data/` (dataset de ejercicios, rutinas predefinidas) y `services/` (lógica pura, p. ej. `MembershipRenewal`).
+   - **Sin dependencias externas.**
 
-2.  **Aplicación (`lib/src/02-application`)**:
-    - Implementa la lógica de los casos de uso.
-    - Maneja la orquestación entre servicios.
-    - Utiliza inyección de dependencias para recibir los repositorios.
+2. **Aplicación (`lib/src/application`)**
+   - Casos de uso (`use_cases/`) y servicios (`services/`: finanzas, churn, gamificación, análisis de entrenamiento…).
+   - Firestore siempre inyectado por constructor (testeable con fakes).
 
-3.  **Infraestructura (`lib/src/03-infrastructure`)**:
-    - Implementaciones reales de Firebase (`adapters`).
-    - Configuración del contenedor de dependencias (`config/di.dart`).
-    - Transformación de datos (`mappers`).
+3. **Infraestructura (`lib/src/infrastructure`)**
+   - Adaptadores Firebase (`adapters/firebase/`) y locales (`adapters/local/`: media de ejercicios con factory condicional io/web).
+   - Caché offline: repos decorados `Cached*` sobre Hive + `ConnectivityService`.
+   - DI en `config/di.dart` (GetIt); mappers en `mappers/`.
 
-4.  **Presentación (`lib/src/04-presentation`)**:
-    - Manejo de estado con `Bloc`.
-    - Rutas con `GoRouter` (`router/app_router.dart`).
-    - Estilos con el sistema `Quantum UX`.
+4. **Presentación (`lib/src/presentation`)**
+   - BLoC (`AuthBloc`, `AppBloc`, `RoutineBloc`), GoRouter (`router/app_router.dart`) con guards por rol, tema Quantum UX.
+
+`lib/core/`: AuthStateNotifier (sesión + perfil con uid/gymId/rol), errores, tipos.
 
 ---
 
-## 🧭 MAPA COMPLETO DE RUTAS
+## 🧭 MAPA DE RUTAS (real, generado del router)
 
-### Autenticación y Perfil
-- `/login`: Pantalla de entrada.
-- `/register`: Registro de nuevos atletas.
-- `/profile`: Visualización de perfil.
-- `/profile/edit`: Edición de datos personales.
-- `/settings`: Ajustes generales de la aplicación.
+### Autenticación / comunes
+`/login` · `/register` · `/forgot-password` · `/profile` (+`edit`) · `/settings` (+`notifications`) · `/help-support` · `/onboarding`
 
-### Cliente (Atleta)
+### Admin de plataforma
+`/admin/dashboard` · `/admin/gyms` · `/admin/owners` · `/admin/reports` · `/admin/billing` · `/admin/audit` · `/admin/settings` · `/admin/exercises` · `/admin/forge`
+
+### Dueño (Owner) — shell con sidebar (AdminLayout)
 | Ruta | Función |
 |------|---------|
-| `/client/home` | Dashboard principal con progreso de hoy y accesos rápidos. |
-| `/client/routine` | Lista de rutinas asignadas por el gimnasio. |
-| `/client/daily-workout` | Interfaz de ejecución de ejercicios en tiempo real. |
-| `/client/workout-planning` | Calendario para programar futuras sesiones. |
-| `/client/mesocycle` | Gestión de bloques de entrenamiento a largo plazo. |
-| `/client/chatbot` | Asistente de IA para dudas técnicas. |
-| `/client/analytics` | Gráficas detalladas de rendimiento y volumen. |
-| `/client/recovery-form` | Check-in diario de estado físico/mental. |
-| `/client/exercise-library` | Biblioteca técnica de ejercicios con videos/instrucciones. |
+| `/owner/dashboard` | Dashboard tiempo real (KPIs del gym) |
+| `/owner/gym-info` | Información del gimnasio |
+| `/owner/members` | Gestión de miembros + **cobro/renovación de membresías** |
+| `/owner/staff` | Staff profesional |
+| `/owner/pending-registrations` | Solicitudes pendientes (aprobación) |
+| `/owner/plans` | Planes de membresía (precio + duración) |
+| `/owner/promotions` | Promociones (descuentos, 2x1, referidos) |
+| `/owner/exercise-builder` / `/owner/routine-builder` / `/owner/program-builder` | Constructores (Gym Engine) |
+| `/owner/exercises` · `/owner/atlas` | Biblioteca/atlas de ejercicios |
+| `/owner/forge` | Training Forge (rutinas/programas + compartir QR) |
+| `/owner/retention` | Retención con IA (riesgo de abandono) |
+| `/owner/dashboard-bi` | Business Intelligence (ingresos, MRR, cohortes) |
+| `/owner/pos-sales` · `/owner/pos-inventory` | Punto de venta e inventario |
+| `/owner/cash-close` | Conciliación de caja |
+| `/owner/finance` | Finanzas/suscripciones |
+| `/owner/global-settings` | Configuración del gym |
+| `/owner/add-member` | Wizard de alta de miembro |
 
-### Administrador (Dueño de Gym)
-- `/owner/dashboard`: Visión general de ingresos y ocupación.
-- `/owner/members`: Base de datos de clientes y estados de pago.
-- `/owner/routine-builder`: Herramienta para crear y asignar rutinas a clientes.
-- `/owner/pos`: Punto de venta para suplementos y mensualidades.
-- `/owner/staff`: Gestión de entrenadores y personal.
+### Kiosko (requiere sesión owner/staff)
+`/kiosk/routines` — catálogo fullscreen + genera QR `routine_import` (expira 10 min)
+
+### Staff
+`/staff/home` · `/staff/qr-scanner` (check-in por pase QR) · `/staff/routine-management`
+
+### Cliente — shell con bottom nav
+`/client/home` · `/client/routine` · `/client/qr-checkin` · `/client/analytics`
+
+Standalone: `/client/import-routine` (**escáner QR de rutinas** con preview y auto-asignación) · `/client/qr` · `/client/digital-pass` · `/client/daily-workout` · `/client/manual-log` · `/client/workout-analytics` · `/client/volume` · `/client/muscle-heatmap` · `/client/nutrition` · `/client/measurements` · `/client/recovery` · `/client/achievements` · `/client/notifications` · `/client/timer` · `/client/community` · `/client/leaderboard` · `/classes/gym-classes`
+
+---
+
+## 📊 ESQUEMA FIRESTORE PRINCIPAL
+
+- `users/{uid}`: perfil global (rol, gymId, membershipStatus…).
+- `gyms/{id}` (+ subcolección `members`: status 'Activos'/'Vencidos', plan, expiry dd/MM/yyyy, isFrozen, registeredAt).
+- `membership_plans`: gymId, name, price, duration, durationDays.
+- `payments`: gymId, type ('subscription' | 'pos'), amount, date, memberId, method, registeredBy → alimenta BI/finanzas.
+- `promotions`: gymId, name, type (percentDiscount/fixedDiscount/twoForOne/freePass/referral), value, code, startDate/endDate, isActive.
+- `routines` / `assignments` (auto-asignación permitida: clientId == assignedById al importar por QR) / `workout_sessions` / `personal_records`.
+- `subscriptions` (MRR), `daily_closings`, `pos_products`, `pos_sales`, `check_ins`, `access_logs`.
+- `gamification/{userId}` (XP, racha, logros), `notifications`, `staff`, `pending_registrations`, `audit_logs`.
+- Plataforma: `platform_plans`, `platform_invoices`.
+
+Flujo de cobro de membresía: diálogo en `/owner/members` → batch atómico (pago `type: subscription` + member update status/expiry) → visible en BI/conciliación. Si el miembro está vigente, los días se suman a su vencimiento (`MembershipRenewal`).
 
 ---
 
 ## 💎 SISTEMA DE DISEÑO: QUANTUM
-El lenguaje visual es **Oscuro Premium** enfocado en pantallas OLED para ahorrar batería durante el entrenamiento.
-
-- **Fondo:** `#0F0F12` (Cosmic Black)
-- **Acento 1:** `#00E0FF` (Quantum Blue)
-- **Acento 2:** `#00FFE0` (Matrix Cyan)
-- **Superficies:** `#1A1A21` (Void Gray)
-
-**Tipografía:**
-- Encabezados: `Inter` (Extra Light / Light para elegancia).
-- Métricas: `JetBrains Mono` (Para legibilidad de datos técnicos).
-
----
-
-## 📊 ENTIDADES DE DATOS PRINCIPALES
-- **User**: Nombre, rol (admin/client/owner/staff), gymId, suscripción.
-- **Gym**: Nombre, código único, config financiera, dueño.
-- **PendingRegistration**: Cola de pre-aprobación (usuarios esperando ser aceptados).
-- **AccessCode**: Códigos seguros CSPRNG para acceso, onboarding, invitaciones.
-- **GymMembership**: Relación usuario-gym con historial de planes.
-- **Workout Routine**: Nombre, ejercicios, duración, dificultad.
-- **Exercise**: Músculo principal, técnica, sets realizados.
-- **Nutrition Log**: Calorías, Macros (Proteína, Carbos, Grasas).
-- **Measurement**: Peso, % grasa, perímetros musculares.
-- **AuditLog**: Registro inmutable de acciones de seguridad.
-
----
-
-## 🛠️ STACK TECNOLÓGICO
-- **Framework:** Flutter (Multiplataforma - Android, iOS, Web, Desktop).
-- **Backend/DB (actual):** Firebase (Firestore, Auth).
-- **Backend/DB (futuro):** PostgreSQL en VPS + API REST (Supabase/Custom).
-- **Local DI:** GetIt.
-- **State:** Flutter BLoC.
-- **Routing:** GoRouter.
+- **Fondo:** `#0F0F12` (Cosmic Black) · **Superficies:** `#1A1A21` (Void Gray)
+- **Acentos:** `#00E0FF` (Quantum Blue) · `#00FFE0` (Matrix Cyan) · `#8B5CF6` (Holo Purple)
+- Kiosko con modo alto contraste para accesibilidad.
 
 ---
 
 ## 🔐 SEGURIDAD
-- **Códigos de Acceso:** CSPRNG via `Random.secure()`, prefijos por tipo, expiración configurable.
-- **Multi-Tenancy:** Aislamiento por `gym_id` en todas las consultas.
-- **Roles:** admin > owner > employee > client (permisos jerárquicos).
-- **Pre-Aprobación:** Los usuarios registrados deben ser aceptados por un gym antes de acceder.
-- **Firestore Rules:** RLS implementado con validación de permisos por rol.
+- **Multi-tenancy** por `gymId` en consultas y Firestore Rules.
+- **Roles:** admin > owner > employee > client (guards en router + validación en dominio + rules).
+- **Pre-aprobación** de registros; **App Check** (Play Integrity/Device Check; web pendiente ReCaptcha).
+- Auditoría inmutable (`audit_logs`); secretos fuera del bundle/repo.
 
 ---
-*Este documento se actualiza periódicamente para reflejar el estado actual del desarrollo.*
+
+## 🌐 PLATAFORMAS Y DESPLIEGUE
+- Android (APK), Web (con shims io/web para media offline), Windows desktop.
+- Web en VPS: ver `deploy/README.md` (Docker nginx + Caddy HTTPS; `deploy.ps1`).
+- Reglas: `npx firebase-tools deploy --only firestore` (proyecto `gain-wave`).
+
+---
+*Este documento se actualiza al cerrar cada bloque de trabajo importante.*
