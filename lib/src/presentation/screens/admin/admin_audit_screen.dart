@@ -13,18 +13,11 @@ class AdminAuditScreen extends StatefulWidget {
 class _AdminAuditScreenState extends State<AdminAuditScreen> {
   String _filterType = 'Todos';
 
-  final List<Map<String, dynamic>> _logs = [
-    {'action': 'Login exitoso', 'user': 'Carlos Mendoza', 'role': 'Owner', 'gym': 'Iron Temple', 'ip': '192.168.1.45', 'time': '2025-02-10 14:02', 'type': 'auth'},
-    {'action': 'Miembro suspendido', 'user': 'Ana García', 'role': 'Owner', 'gym': 'FitZone Pro', 'ip': '10.0.0.12', 'time': '2025-02-10 13:45', 'type': 'member'},
-    {'action': 'Cobro manual registrado \$1,500', 'user': 'Roberto Díaz', 'role': 'Owner', 'gym': 'PowerHouse', 'ip': '172.16.0.8', 'time': '2025-02-10 13:30', 'type': 'finance'},
-    {'action': 'Rol de staff modificado', 'user': 'Super Admin', 'role': 'Admin', 'gym': 'Global', 'ip': '192.168.1.1', 'time': '2025-02-10 12:15', 'type': 'security'},
-    {'action': 'Gimnasio suspendido: CrossFit Arena', 'user': 'Super Admin', 'role': 'Admin', 'gym': 'Global', 'ip': '192.168.1.1', 'time': '2025-02-10 11:00', 'type': 'security'},
-    {'action': 'Rutina asignada a 15 clientes', 'user': 'María Staff', 'role': 'Staff', 'gym': 'Iron Temple', 'ip': '192.168.1.50', 'time': '2025-02-10 10:30', 'type': 'routine'},
-    {'action': 'Nuevo miembro registrado', 'user': 'Carlos Mendoza', 'role': 'Owner', 'gym': 'Iron Temple', 'ip': '192.168.1.45', 'time': '2025-02-10 09:15', 'type': 'member'},
-    {'action': 'Configuración de gym actualizada', 'user': 'Ana García', 'role': 'Owner', 'gym': 'FitZone Pro', 'ip': '10.0.0.12', 'time': '2025-02-09 18:00', 'type': 'settings'},
-    {'action': 'Exportación de reporte financiero', 'user': 'Roberto Díaz', 'role': 'Owner', 'gym': 'PowerHouse', 'ip': '172.16.0.8', 'time': '2025-02-09 16:45', 'type': 'finance'},
-    {'action': 'Intento de login fallido (3 intentos)', 'user': 'desconocido@test.com', 'role': 'N/A', 'gym': 'N/A', 'ip': '45.67.89.12', 'time': '2025-02-09 15:30', 'type': 'security'},
-  ];
+  // Sin fuente de datos real todavía: no existe un pipeline de audit log
+  // conectado a las acciones de la plataforma. Lista vacía a propósito en
+  // vez de eventos inventados (nombres/IPs/horarios falsos que antes se
+  // mostraban acá como si fueran reales).
+  final List<Map<String, dynamic>> _logs = [];
 
   List<Map<String, dynamic>> get _filteredLogs {
     if (_filterType == 'Todos') return _logs;
@@ -49,7 +42,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
           children: [
             _buildHeader(),
             const SizedBox(height: 32),
-            _buildSecurityAlerts(),
+            _buildNotImplementedNotice(),
             const SizedBox(height: 32),
             _buildLogsTable(),
           ],
@@ -68,7 +61,7 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
           children: [
             Text('AUDITORÍA & LOGS', style: QuantumTypography.h1.copyWith(fontSize: 32, letterSpacing: -1, color: Colors.white)),
             const SizedBox(height: 8),
-            const Text('Registro inmutable de todas las acciones en la plataforma', style: TextStyle(color: Colors.white38)),
+            const Text('Registro de acciones en la plataforma (pendiente de conectar a datos reales)', style: TextStyle(color: Colors.white38)),
           ],
         ),
         Row(
@@ -89,47 +82,31 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
     );
   }
 
-  Widget _buildSecurityAlerts() {
+  Widget _buildNotImplementedNotice() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.05),
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.15)),
+        border: Border.all(color: Colors.white10),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.shield_rounded, color: Colors.redAccent, size: 24),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.info_outline_rounded, color: Colors.white38, size: 24),
           ),
           const SizedBox(width: 20),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Alerta de Seguridad', style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                Text('Registro de auditoría aún no conectado', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
                 SizedBox(height: 4),
-                Text('1 intento de login fallido detectado desde IP sospechosa en las últimas 24h', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                Text('Esta plataforma todavía no escribe un log real de acciones (login, altas/bajas, cambios de plan, etc.). Esta pantalla queda a la espera de esa fuente de datos.', style: TextStyle(color: Colors.white38, fontSize: 12)),
               ],
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Revisión de seguridad iniciada. Se notificará al equipo.'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
-              foregroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Revisar', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -182,23 +159,33 @@ class _AdminAuditScreenState extends State<AdminAuditScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(10)),
-            child: const Row(
-              children: [
-                SizedBox(width: 32),
-                Expanded(flex: 3, child: Text('Acción', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Usuario', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(child: Text('Rol', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(child: Text('Gimnasio', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(child: Text('IP', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-                Expanded(child: Text('Fecha/Hora', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
-              ],
+          if (logs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No hay eventos para mostrar.',
+                style: TextStyle(color: Colors.white38, fontSize: 13),
+              ),
+            )
+          else ...[
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.03), borderRadius: BorderRadius.circular(10)),
+              child: const Row(
+                children: [
+                  SizedBox(width: 32),
+                  Expanded(flex: 3, child: Text('Acción', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                  Expanded(flex: 2, child: Text('Usuario', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text('Rol', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text('Gimnasio', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text('IP', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                  Expanded(child: Text('Fecha/Hora', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold))),
+                ],
+              ),
             ),
-          ),
-          ...logs.map((log) => _buildLogRow(log)),
+            ...logs.map((log) => _buildLogRow(log)),
+          ],
         ],
       ),
     );
