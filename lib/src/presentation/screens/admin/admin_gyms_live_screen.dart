@@ -2,10 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
+import '../../../application/services/admin_metrics_service.dart';
 import '../../../domain/entities/entities.dart';
 import '../../../domain/ports/output/gym_repository_port.dart';
 import '../../../domain/value_objects/value_objects.dart';
 import '../../theme/theme.dart';
+
+const _platformPlanStatuses = ['active', 'trial', 'suspended', 'cancelled'];
+
+String _planStatusLabel(String status) => switch (status) {
+      'active' => 'Activo',
+      'trial' => 'Prueba',
+      'suspended' => 'Suspendido',
+      'cancelled' => 'Cancelado',
+      _ => status,
+    };
 
 class AdminGymsLiveScreen extends StatefulWidget {
   const AdminGymsLiveScreen({super.key});
@@ -17,6 +28,7 @@ class AdminGymsLiveScreen extends StatefulWidget {
 class _AdminGymsLiveScreenState extends State<AdminGymsLiveScreen> {
   final FirebaseFirestore _firestore = GetIt.I<FirebaseFirestore>();
   final GymRepositoryPort _gymRepository = GetIt.I<GymRepositoryPort>();
+  final AdminMetricsService _metricsService = GetIt.I<AdminMetricsService>();
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _gymNameController = TextEditingController();
   final TextEditingController _gymAddressController = TextEditingController();
@@ -25,6 +37,20 @@ class _AdminGymsLiveScreenState extends State<AdminGymsLiveScreen> {
   String _filter = 'Todos';
   bool _isCreating = false;
   bool _isUpdatingStatus = false;
+  bool _isAssigningPlan = false;
+  List<PlatformPlan> _plans = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlans();
+  }
+
+  Future<void> _loadPlans() async {
+    await _metricsService.ensureDefaultPlans();
+    final plans = await _metricsService.getPlans(onlyActive: true);
+    if (mounted) setState(() => _plans = plans);
+  }
 
   @override
   void dispose() {
@@ -249,6 +275,111 @@ class _AdminGymsLiveScreenState extends State<AdminGymsLiveScreen> {
     );
   }
 
+  Future<void> _assignPlan({
+    required String gymId,
+    required String planId,
+    required String status,
+  }) async {
+    setState(() => _isAssigningPlan = true);
+    try {
+      await _firestore.collection('gyms').doc(gymId).update({
+        'platformPlanId': planId,
+        'platformPlanStatus': status,
+      });
+      _showSuccess('Plan de plataforma actualizado');
+    } catch (e) {
+      _showError('No se pudo asignar el plan: $e');
+    } finally {
+      if (mounted) setState(() => _isAssigningPlan = false);
+    }
+  }
+
+  void _openAssignPlanDialog({
+    required String gymId,
+    required String gymName,
+    required String? currentPlanId,
+    required String? currentStatus,
+  }) {
+    if (_plans.isEmpty) {
+      _showError('No hay planes de plataforma cargados todavía');
+      return;
+    }
+    String selectedPlanId =
+        _plans.any((p) => p.id == currentPlanId) ? currentPlanId! : _plans.first.id;
+    String selectedStatus =
+        _platformPlanStatuses.contains(currentStatus) ? currentStatus! : 'trial';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: QuantumColors.surface(),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Plan de plataforma — $gymName', style: const TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Plan', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              const SizedBox(height: 8),
+              DropdownButton<String>(
+                value: selectedPlanId,
+                isExpanded: true,
+                dropdownColor: QuantumColors.surface(),
+                style: const TextStyle(color: Colors.white),
+                items: _plans
+                    .map((p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text('${p.name} (\$${p.price.toStringAsFixed(0)})'),
+                        ))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => selectedPlanId = v);
+                },
+              ),
+              const SizedBox(height: 16),
+              const Text('Estado', style: TextStyle(color: Colors.white60, fontSize: 12)),
+              const SizedBox(height: 8),
+              DropdownButton<String>(
+                value: selectedStatus,
+                isExpanded: true,
+                dropdownColor: QuantumColors.surface(),
+                style: const TextStyle(color: Colors.white),
+                items: _platformPlanStatuses
+                    .map((s) => DropdownMenuItem(value: s, child: Text(_planStatusLabel(s))))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) setDialogState(() => selectedStatus = v);
+                },
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Solo el plan con estado "Activo" cuenta en el MRR del panel de facturación.',
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              onPressed: _isAssigningPlan
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _assignPlan(gymId: gymId, planId: selectedPlanId, status: selectedStatus);
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: QuantumColors.primary),
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -446,7 +577,40 @@ class _AdminGymsLiveScreenState extends State<AdminGymsLiveScreen> {
                                 'Creado: ${_formatDate(data['createdAt']?.toString())}',
                                 style: const TextStyle(color: Colors.white38),
                               ),
+                              const SizedBox(height: 8),
+                              Builder(builder: (context) {
+                                final planId = data['platformPlanId']?.toString();
+                                final planStatus = data['platformPlanStatus']?.toString();
+                                final plan = _plans.where((p) => p.id == planId).firstOrNull;
+                                final label = plan != null
+                                    ? '${plan.name} · ${_planStatusLabel(planStatus ?? 'trial')}'
+                                    : 'Sin plan de plataforma asignado';
+                                return Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: plan != null ? Colors.white70 : Colors.orangeAccent,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }),
                               const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed: () => _openAssignPlanDialog(
+                                    gymId: doc.id,
+                                    gymName: data['name']?.toString() ?? 'Sin nombre',
+                                    currentPlanId: data['platformPlanId']?.toString(),
+                                    currentStatus: data['platformPlanStatus']?.toString(),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white24),
+                                  ),
+                                  child: const Text('Asignar plan de plataforma'),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton(
