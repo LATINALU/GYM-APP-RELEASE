@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/routine_planning.dart';
 
 class RoutineService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  RoutineService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
 
   /// FUNCIÓN 1: Calcular Carga de Entrenamiento (Volume Load)
   double calculateVolume(int sets, String reps, double weight) {
