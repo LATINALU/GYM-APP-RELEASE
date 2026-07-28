@@ -29,16 +29,12 @@ import '../../mappers/mappers.dart';
 ///   de alcance de este commit. Implementado para lanzar el flujo, pero
 ///   la UI que lo llama va a necesitar ajustarse para esperar el
 ///   resultado por `authStateChanges` en vez de por el valor de retorno.
-/// - `provisionUser`: el equivalente Firebase usaba una app secundaria
-///   para crear la cuenta sin pisar la sesión del admin. En Supabase,
-///   crear usuarios sin iniciar sesión como ellos requiere la Admin API
-///   de GoTrue (`auth.admin.createUser`), que exige el `service_role`
-///   key — ese secreto NUNCA debe vivir en el cliente Flutter (mismo
-///   riesgo que ya se resolvió para el JWT bridge del piloto). Acá se
-///   deja sin implementar (lanza [UnimplementedError]) hasta que exista
-///   una Edge Function server-side equivalente a
-///   `supabase/functions/firebase-token-exchange` que use el
-///   service_role key del lado del servidor.
+/// - `provisionUser`: delega en la Edge Function
+///   `supabase/functions/admin-provision-user/index.ts`, la única que
+///   puede usar la Admin API de GoTrue (`service_role` key) sin ese
+///   secreto viviendo en el cliente Flutter (mismo riesgo ya resuelto
+///   para el JWT bridge del piloto) ni pisar la sesión del admin que
+///   provisiona al nuevo usuario.
 class SupabaseAuthRepository implements AuthRepositoryPort {
   final SupabaseClient _client;
   SupabaseAuthRepository(this._client);
@@ -207,15 +203,52 @@ class SupabaseAuthRepository implements AuthRepositoryPort {
     required GymId gymId,
     PhoneNumber? phone,
   }) async {
-    // Requiere una Edge Function server-side con el service_role key
-    // (ver comentario de clase) — todavía no existe. No implementar
-    // acá con el anon key: signUp() cambiaría la sesión del admin que
-    // está provisionando al nuevo usuario, y usar el service_role key
-    // directo desde el cliente expondría un secreto que salteA todo RLS.
-    throw UnimplementedError(
-      'provisionUser requiere una Edge Function server-side (service_role key) '
-      'todavía no construida para el corte de Auth a Supabase.',
-    );
+    try {
+      // Delega en la Edge Function admin-provision-user
+      // (supabase/functions/admin-provision-user/index.ts), la única
+      // que puede usar la Admin API de GoTrue (service_role key) sin
+      // exponer ese secreto en el cliente ni pisar la sesión de quien
+      // llama. `functions.invoke` adjunta el access token de la sesión
+      // actual automáticamente — la función valida ahí que sea admin.
+      final response = await _client.functions.invoke(
+        'admin-provision-user',
+        body: {
+          'email': email.value,
+          'password': password,
+          'fullName': name.fullName,
+          'role': role.toValue(),
+          'gymId': gymId.value,
+          if (phone != null) 'phone': phone.value,
+        },
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final userWithId = User.restore(
+        id: UserId(data['id'] as String),
+        email: email,
+        name: name,
+        role: role,
+        gymId: gymId,
+        phone: phone,
+        createdAt: DateTime.now(),
+        isActive: true,
+        membershipStatus: role.type == GymRoleType.client
+            ? MembershipStatus.pending
+            : MembershipStatus.approved,
+      );
+
+      // provisionUser no inicia sesión como el usuario nuevo (a
+      // propósito, igual que el equivalente Firebase) — no hay token
+      // de sesión propio para devolver.
+      return right(AuthResult(user: userWithId, token: ''));
+    } on FunctionException catch (e) {
+      return left(ServerFailure(
+        message: 'Error al aprovisionar usuario: ${e.details ?? e.reasonPhrase}',
+        code: 'PROVISION_FAILED',
+      ));
+    } catch (e) {
+      return left(ServerFailure(message: 'Error inesperado: $e'));
+    }
   }
 
   @override
