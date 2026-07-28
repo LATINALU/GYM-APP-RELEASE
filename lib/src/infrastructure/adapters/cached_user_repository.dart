@@ -6,14 +6,19 @@ import '../../domain/ports/output/user_repository_port.dart';
 import '../../domain/value_objects/value_objects.dart';
 import '../services/local_cache_service.dart';
 import '../services/connectivity_service.dart';
-import 'firebase/firebase_user_repository.dart';
 import '../mappers/mappers.dart';
 
-/// Decorator around [FirebaseUserRepository] that adds offline-first caching.
-/// When online: fetches from Firestore and updates the local cache.
-/// When offline: returns cached data from Hive, or a failure if never synced.
+/// Decorator around a [UserRepositoryPort] implementation that adds
+/// offline-first caching. When online: fetches from the remote source and
+/// updates the local cache. When offline: returns cached data from Hive, or
+/// a failure if never synced.
+///
+/// Antes dependía del tipo concreto FirebaseUserRepository en vez del
+/// puerto — eso rompía el patrón decorator/DDD e impedía envolver
+/// cualquier otro adaptador (ej. SupabaseUserRepository, Fase 3 de la
+/// migración a Supabase). Corregido para depender solo de la interfaz.
 class CachedUserRepository implements UserRepositoryPort {
-  final FirebaseUserRepository _remote;
+  final UserRepositoryPort _remote;
   final LocalCacheService _cache;
   final ConnectivityService _connectivity;
 

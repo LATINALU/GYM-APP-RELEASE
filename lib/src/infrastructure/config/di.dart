@@ -23,6 +23,8 @@ import '../adapters/supabase/supabase_volume_repository.dart';
 import '../adapters/supabase/supabase_nutrition_repository.dart';
 import '../adapters/supabase/supabase_access_code_repository.dart';
 import '../adapters/supabase/supabase_pending_registration_repository.dart';
+import '../adapters/supabase/supabase_user_repository.dart';
+import '../adapters/supabase/supabase_gym_repository.dart';
 import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
@@ -96,18 +98,24 @@ Future<void> configureDependencies() async {
   }
   
   if (!getIt.isRegistered<UserRepositoryPort>()) {
+    final useSupabaseIdentity = dotenv.env['USE_SUPABASE_IDENTITY'] == 'true';
     getIt.registerLazySingleton<UserRepositoryPort>(
       () => CachedUserRepository(
-        FirebaseUserRepository(getIt<FirebaseFirestore>()),
+        useSupabaseIdentity
+            ? SupabaseUserRepository(getIt<SupabaseClient>())
+            : FirebaseUserRepository(getIt<FirebaseFirestore>()),
         LocalCacheService.instance,
         ConnectivityService.instance,
       ),
     );
   }
-  
+
   if (!getIt.isRegistered<GymRepositoryPort>()) {
+    final useSupabaseGyms = dotenv.env['USE_SUPABASE_IDENTITY'] == 'true';
     getIt.registerLazySingleton<GymRepositoryPort>(
-      () => FirebaseGymRepository(getIt<FirebaseFirestore>()),
+      () => useSupabaseGyms
+          ? SupabaseGymRepository(getIt<SupabaseClient>())
+          : FirebaseGymRepository(getIt<FirebaseFirestore>()),
     );
   }
   
