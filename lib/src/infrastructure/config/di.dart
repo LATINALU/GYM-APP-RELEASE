@@ -456,6 +456,7 @@ Future<void> configureDependencies() async {
       () => RustMemberNumberAllocator(
         httpClient: getIt<http.Client>(),
         firebaseAuth: getIt<FirebaseAuth>(),
+        supabaseClient: getIt<SupabaseClient>(),
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
+import 'package:supabase/supabase.dart' as sb;
 
 import '../../src/domain/entities/entities.dart';
 import '../../src/domain/value_objects/value_objects.dart';
@@ -12,6 +14,13 @@ import '../../src/domain/value_objects/value_objects.dart';
 ///
 /// Backend modes:
 /// - **Firebase mode** (default): real auth against FirebaseAuth + Firestore
+/// - **Supabase mode** (`useSupabaseAuth = true`): real auth against
+///   Supabase Auth (GoTrue) + `public.gym_members`/`public.admins` — Fase 4
+///   del plan de migración Firebase->Supabase. A diferencia de los demás
+///   flags `USE_SUPABASE_*` (uno por módulo, pueden convivir), este es un
+///   corte único: una sesión es Firebase o es Supabase, nunca ambas a la
+///   vez, por eso vive como el mismo tipo de toggle estático que
+///   `useMockAuth` en vez de leerse por adaptador.
 /// - **Mock mode** (explicit): hardcoded credentials for test/dev entrypoints
 class AuthStateNotifier extends ChangeNotifier {
   AuthStateNotifier._internal() {
@@ -25,10 +34,17 @@ class AuthStateNotifier extends ChangeNotifier {
   /// This flag is never auto-enabled as a fallback.
   static bool useMockAuth = false;
 
+  /// Corte de Auth a Supabase (Fase 4). Default false = sigue en Firebase
+  /// Auth hasta que se decida activarlo (requiere el hook de GoTrue ya
+  /// desplegado en el VPS, ver supabase/migrations/0009_*).
+  static bool useSupabaseAuth = false;
+
   // Lazy: en modo mock (tests) nunca se accede y no exige Firebase.initializeApp().
   late final fb.FirebaseAuth _firebaseAuth = fb.FirebaseAuth.instance;
   late final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  StreamSubscription<fb.User?>? _authSubscription;
+  late final sb.SupabaseClient _supabase = GetIt.I<sb.SupabaseClient>();
+  StreamSubscription<fb.User?>? _firebaseAuthSubscription;
+  StreamSubscription<sb.AuthState>? _supabaseAuthSubscription;
 
   bool _isAuthenticated = false;
   UserProfile? _profile;
@@ -79,6 +95,12 @@ class AuthStateNotifier extends ChangeNotifier {
       return;
     }
 
+    if (useSupabaseAuth) {
+      debugPrint('[Auth] AuthStateNotifier initialized in SUPABASE mode.');
+      _initSupabaseAuth();
+      return;
+    }
+
     debugPrint('[Auth] AuthStateNotifier initialized in FIREBASE mode.');
     _initFirebaseAuth();
   }
@@ -87,8 +109,8 @@ class AuthStateNotifier extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _authSubscription?.cancel();
-    _authSubscription = _firebaseAuth.authStateChanges().listen(
+    _firebaseAuthSubscription?.cancel();
+    _firebaseAuthSubscription = _firebaseAuth.authStateChanges().listen(
       (firebaseUser) async {
         if (firebaseUser == null) {
           _isAuthenticated = false;
@@ -112,6 +134,44 @@ class AuthStateNotifier extends ChangeNotifier {
       },
       onError: (Object error) {
         debugPrint('[Auth] Firebase auth stream error: $error');
+        _isAuthenticated = false;
+        _profile = null;
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  void _initSupabaseAuth() {
+    _isLoading = true;
+    notifyListeners();
+
+    _supabaseAuthSubscription?.cancel();
+    _supabaseAuthSubscription = _supabase.auth.onAuthStateChange.listen(
+      (state) async {
+        final supabaseUser = state.session?.user;
+        if (supabaseUser == null) {
+          _isAuthenticated = false;
+          _profile = null;
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+
+        try {
+          _profile = await _resolveSupabaseProfile(supabaseUser);
+          _isAuthenticated = true;
+        } catch (e) {
+          debugPrint('[Auth] Failed to resolve Supabase profile: $e');
+          _isAuthenticated = false;
+          _profile = null;
+        } finally {
+          _isLoading = false;
+          notifyListeners();
+        }
+      },
+      onError: (Object error) {
+        debugPrint('[Auth] Supabase auth stream error: $error');
         _isAuthenticated = false;
         _profile = null;
         _isLoading = false;
@@ -170,15 +230,63 @@ class AuthStateNotifier extends ChangeNotifier {
     );
   }
 
+  /// Equivalente Supabase de [_resolveProfile]. A diferencia de Firebase, acá
+  /// no hace falta decodificar el JWT para leer app_role/gym_id — se
+  /// consulta directo `gym_members` (o `admins` si no está ahí), que es
+  /// justamente el mismo patrón que en Firebase YA terminaba usándose en la
+  /// práctica: ningún archivo del repo llamó nunca `setCustomUserClaims`,
+  /// así que el camino de "leer claims del token" jamás tuvo datos reales —
+  /// el doc-lookup era, de hecho, el único camino que funcionaba.
+  Future<UserProfile> _resolveSupabaseProfile(sb.User supabaseUser) async {
+    final memberRow = await _supabase
+        .from('gym_members')
+        .select()
+        .eq('id', supabaseUser.id)
+        .maybeSingle();
+
+    if (memberRow != null) {
+      return UserProfile(
+        uid: supabaseUser.id,
+        email: memberRow['email']?.toString() ?? supabaseUser.email ?? '',
+        displayName: _resolveDisplayNameFromRow(memberRow, supabaseUser),
+        role: _parseRole(memberRow['role']),
+        gymId: memberRow['gym_id'] != null
+            ? GymId(memberRow['gym_id'].toString())
+            : null,
+        photoUrl: _supabaseAvatarUrl(supabaseUser),
+        weight: _parseDouble(memberRow['weight']),
+        height: _parseDouble(memberRow['height']),
+        fitnessGoal: memberRow['fitness_goal']?.toString(),
+        membershipStatus: _parseMembershipStatus(memberRow['membership_status']),
+        membershipExpiresAt: _parseDateTime(memberRow['membership_expires_at']),
+      );
+    }
+
+    final adminRow = await _supabase
+        .from('admins')
+        .select()
+        .eq('id', supabaseUser.id)
+        .maybeSingle();
+
+    return UserProfile(
+      uid: supabaseUser.id,
+      email: adminRow?['email']?.toString() ?? supabaseUser.email ?? '',
+      displayName: _resolveDisplayNameFromIdentity(supabaseUser),
+      role: adminRow != null ? const GymRole.admin() : null,
+      gymId: null,
+      photoUrl: _supabaseAvatarUrl(supabaseUser),
+    );
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // LOGIN (Firebase + explicit Mock mode)
+  // LOGIN (Firebase + Supabase + explicit Mock mode)
   // ═══════════════════════════════════════════════════════════════════════════
 
   bool validateCredentials(String email, String password) {
     if (kReleaseMode && useMockAuth) {
       return false;
     }
-    // Firebase credentials require server-side validation.
+    // Firebase/Supabase credentials require server-side validation.
     return true;
   }
 
@@ -191,6 +299,34 @@ class AuthStateNotifier extends ChangeNotifier {
       throw Exception(
         'Mock credentials are disabled. Use Firebase auth or login(UserProfile) in explicit test/dev entrypoints.',
       );
+    }
+
+    if (useSupabaseAuth) {
+      try {
+        final response = await _supabase.auth.signInWithPassword(
+          email: email.trim(),
+          password: password,
+        );
+        final supabaseUser = response.user;
+        if (supabaseUser == null) {
+          throw Exception('Credenciales inválidas');
+        }
+
+        _profile = await _resolveSupabaseProfile(supabaseUser);
+        _isAuthenticated = true;
+        _isLoading = false;
+        notifyListeners();
+        debugPrint(
+          '[Auth] Supabase login successful: ${_profile?.displayName} (${_profile?.role})',
+        );
+      } on sb.AuthException catch (e) {
+        debugPrint('[Auth] Supabase login failed: ${e.message}');
+        throw Exception('Credenciales inválidas');
+      } catch (e) {
+        debugPrint('[Auth] Supabase login failed: $e');
+        throw Exception('Credenciales inválidas');
+      }
+      return;
     }
 
     try {
@@ -225,6 +361,25 @@ class AuthStateNotifier extends ChangeNotifier {
       return;
     }
 
+    if (useSupabaseAuth) {
+      try {
+        final supabaseUser = _supabase.auth.currentUser;
+        if (supabaseUser == null) {
+          _isAuthenticated = false;
+          _profile = null;
+          notifyListeners();
+          return;
+        }
+
+        _profile = await _resolveSupabaseProfile(supabaseUser);
+        _isAuthenticated = true;
+        notifyListeners();
+      } catch (e) {
+        debugPrint('[Auth] Error refreshing Supabase profile: $e');
+      }
+      return;
+    }
+
     try {
       final firebaseUser = _firebaseAuth.currentUser;
       if (firebaseUser == null) {
@@ -256,9 +411,13 @@ class AuthStateNotifier extends ChangeNotifier {
   Future<void> signOut() async {
     if (!useMockAuth) {
       try {
-        await _firebaseAuth.signOut();
+        if (useSupabaseAuth) {
+          await _supabase.auth.signOut();
+        } else {
+          await _firebaseAuth.signOut();
+        }
       } catch (e) {
-        debugPrint('[Auth] Firebase logout error: $e');
+        debugPrint('[Auth] Logout error: $e');
       }
     }
 
@@ -377,9 +536,45 @@ class AuthStateNotifier extends ChangeNotifier {
     return 'Usuario';
   }
 
+  String _resolveDisplayNameFromRow(
+    Map<String, dynamic> row,
+    sb.User supabaseUser,
+  ) {
+    final firstName = row['first_name']?.toString().trim();
+    final lastName = row['last_name']?.toString().trim();
+    final fullName = [
+      if (firstName != null && firstName.isNotEmpty) firstName,
+      if (lastName != null && lastName.isNotEmpty) lastName,
+    ].join(' ');
+    if (fullName.isNotEmpty) return fullName;
+
+    return _resolveDisplayNameFromIdentity(supabaseUser);
+  }
+
+  String _resolveDisplayNameFromIdentity(sb.User supabaseUser) {
+    final metadataName =
+        supabaseUser.userMetadata?['full_name']?.toString().trim();
+    if (metadataName != null && metadataName.isNotEmpty) {
+      return metadataName;
+    }
+
+    final email = supabaseUser.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email.split('@').first;
+    }
+
+    return 'Usuario';
+  }
+
+  String? _supabaseAvatarUrl(sb.User supabaseUser) {
+    final value = supabaseUser.userMetadata?['avatar_url'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
   @override
   void dispose() {
-    _authSubscription?.cancel();
+    _firebaseAuthSubscription?.cancel();
+    _supabaseAuthSubscription?.cancel();
     super.dispose();
   }
 }

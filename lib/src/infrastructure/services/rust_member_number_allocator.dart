@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:http/http.dart' as http;
+import 'package:supabase/supabase.dart' as sb;
 
+import '../../../core/auth/auth_state_notifier.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/types/typedefs.dart';
 import '../../domain/ports/output/member_number_allocator_port.dart';
@@ -18,18 +20,37 @@ class RustMemberNumberAllocator implements MemberNumberAllocatorPort {
 
   final http.Client _httpClient;
   final fb.FirebaseAuth _firebaseAuth;
+  final sb.SupabaseClient? _supabaseClient;
   final String _baseUrl;
 
   RustMemberNumberAllocator({
     required http.Client httpClient,
     required fb.FirebaseAuth firebaseAuth,
+    sb.SupabaseClient? supabaseClient,
     String? baseUrl,
   })  : _httpClient = httpClient,
         _firebaseAuth = firebaseAuth,
+        _supabaseClient = supabaseClient,
         _baseUrl = (baseUrl ?? _envBaseUrl).trim();
 
   @override
   bool get isEnabled => _baseUrl.isNotEmpty;
+
+  /// Token a enviar como Bearer. Sigue el mismo corte que
+  /// [AuthStateNotifier.useSupabaseAuth] (Fase 4): con Supabase Auth activo,
+  /// el access token de la sesión de GoTrue; si no, el ID token de Firebase.
+  ///
+  /// PENDIENTE del lado del servicio Rust (fuera de este repo Flutter,
+  /// ver rust-services/member-number-service): hoy solo valida ID tokens de
+  /// Firebase. Antes de activar `useSupabaseAuth` en producción, ese
+  /// servicio necesita aceptar también JWTs de GoTrue (HS256, mismo
+  /// JWT_SECRET del stack Supabase) — no es algo que se resuelva desde acá.
+  Future<String?> _resolveBearerToken() async {
+    if (AuthStateNotifier.useSupabaseAuth) {
+      return _supabaseClient?.auth.currentSession?.accessToken;
+    }
+    return _firebaseAuth.currentUser?.getIdToken();
+  }
 
   @override
   FutureResult<AllocatedMemberNumber> allocate({
@@ -47,23 +68,13 @@ class RustMemberNumberAllocator implements MemberNumberAllocatorPort {
       );
     }
 
-    final currentUser = _firebaseAuth.currentUser;
-    if (currentUser == null) {
-      return left(
-        const AuthFailure(
-          message: 'No hay sesión autenticada para solicitar memberNumber.',
-          code: 'AUTH_REQUIRED',
-        ),
-      );
-    }
-
     try {
-      final token = await currentUser.getIdToken();
+      final token = await _resolveBearerToken();
       if (token == null || token.isEmpty) {
         return left(
           const AuthFailure(
-            message: 'No se pudo obtener el token de Firebase para memberNumber.',
-            code: 'TOKEN_UNAVAILABLE',
+            message: 'No hay sesión autenticada para solicitar memberNumber.',
+            code: 'AUTH_REQUIRED',
           ),
         );
       }
