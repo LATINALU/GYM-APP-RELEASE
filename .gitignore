@@ -59,6 +59,7 @@ test-users.local.json
 # Secretos y entornos locales
 .env
 .env.local
+.env.supabase
 
 # Salidas de analisis locales
 analysis*.txt

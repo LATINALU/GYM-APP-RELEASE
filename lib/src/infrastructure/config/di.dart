@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase/supabase.dart';
 
 import '../../domain/ports/ports.dart';
 import '../../domain/ports/input/manage_routine_usecase_port.dart';
@@ -12,8 +14,11 @@ import '../../application/services/gamification_service.dart';
 import '../../application/services/recovery_service.dart';
 import '../../application/services/volume_tracking_service.dart';
 import '../../application/services/nutrition_service.dart';
+import '../../application/services/measurement_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/firebase/firebase_owner_member_repository.dart';
+import '../adapters/supabase/supabase_measurement_repository.dart';
+import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
 import '../adapters/cached_assignment_repository.dart';
@@ -50,6 +55,27 @@ Future<void> configureDependencies() async {
 
   if (!getIt.isRegistered<http.Client>()) {
     getIt.registerLazySingleton<http.Client>(() => http.Client());
+  }
+
+  // Piloto Supabase self-hosted (solo módulo Mediciones, ver plan de
+  // arquitectura). No usa Supabase Auth: el bridge firma un JWT propio a
+  // partir de la sesión de Firebase.
+  if (!getIt.isRegistered<SupabaseJwtBridge>()) {
+    getIt.registerLazySingleton<SupabaseJwtBridge>(
+      () => SupabaseJwtBridge(
+        signingSecret: dotenv.env['SUPABASE_JWT_BRIDGE_SECRET'] ?? '',
+      ),
+    );
+  }
+
+  if (!getIt.isRegistered<SupabaseClient>()) {
+    getIt.registerLazySingleton<SupabaseClient>(
+      () => SupabaseClient(
+        dotenv.env['SUPABASE_URL'] ?? '',
+        dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+        accessToken: () async => getIt<SupabaseJwtBridge>().mintAccessToken(),
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -122,6 +148,22 @@ Future<void> configureDependencies() async {
         getIt<FirebaseFirestore>(),
         () => getIt<FirebaseAuth>().currentUser?.uid ?? 'anonymous',
       ),
+    );
+  }
+
+  if (!getIt.isRegistered<MeasurementRepositoryPort>()) {
+    final useSupabaseMeasurements =
+        dotenv.env['USE_SUPABASE_MEASUREMENTS'] == 'true';
+    getIt.registerLazySingleton<MeasurementRepositoryPort>(
+      () => useSupabaseMeasurements
+          ? SupabaseMeasurementRepository(getIt<SupabaseClient>())
+          : FirebaseMeasurementRepository(getIt<FirebaseFirestore>()),
+    );
+  }
+
+  if (!getIt.isRegistered<MeasurementService>()) {
+    getIt.registerFactory<MeasurementService>(
+      () => MeasurementService(getIt<MeasurementRepositoryPort>()),
     );
   }
 

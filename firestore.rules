@@ -161,13 +161,32 @@ service cloud.firestore {
       // Users can read their own profile
       // Admins can read any profile
       allow read: if isAuth() && (uid() == userId || isAdmin());
-      
-      // Users can only create their own profile during registration
-      allow create: if isAuth() && (uid() == userId || isAdmin());
-      
-      // Users can update their own profile, admins can update any
-      allow update: if isAuth() && (uid() == userId || isAdmin());
-      
+
+      // Self-registration may only claim the 'client' role (or omit role
+      // entirely). Any other role — and any write to someone else's doc —
+      // requires isAdmin(). Without this, a user could set role:'admin' on
+      // their own doc directly: isAdmin() only checks this same document,
+      // with no nested gym-membership requirement (unlike owner/employee/
+      // client, which also need gyms/{gymId}/{role}s/{uid} to exist via
+      // isOwnerOfGym/isStaffOfGym/isMemberOfGym) — a self-write escalation
+      // path that bypassed every other permission check in these rules.
+      allow create: if isAdmin() || (
+        isAuth() && uid() == userId &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'client')
+      );
+
+      // Same rationale as create: users may update their own non-privileged
+      // fields (name, weight, height, fitnessGoal, photoUrl, ...) freely,
+      // but role/gymId can only change via isAdmin(). This also matches how
+      // the registration-approval flow already had to work: it writes this
+      // same root doc as the reviewer (uid() != userId), which only
+      // isAdmin() has ever satisfied here.
+      allow update: if isAdmin() || (
+        isAuth() && uid() == userId &&
+        (!('role' in request.resource.data) || request.resource.data.role == resource.data.role) &&
+        (!('gymId' in request.resource.data) || request.resource.data.gymId == resource.data.gymId)
+      );
+
       // Only admins can delete users
       allow delete: if isAdmin();
     }

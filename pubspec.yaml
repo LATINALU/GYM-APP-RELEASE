@@ -66,6 +66,14 @@ dependencies:
   desktop_drop: ^0.7.0
   path_provider: ^2.1.4
 
+  # Supabase pilot (measurement module) — see docs plan for scope.
+  # Plain `supabase` client on purpose: this pilot never uses Supabase's own
+  # Auth (GoTrue) or Flutter-widget integrations, only PostgREST via the JWT
+  # bridge, so there's no need for supabase_flutter's Flutter dependency.
+  supabase: ^2.8.0
+  dart_jsonwebtoken: ^2.14.0
+  flutter_dotenv: ^5.2.1
+
 
   uuid: any
   path: any
@@ -96,6 +104,7 @@ flutter:
     - assets/images/bodybuilding.png
     - assets/data/exercises_dataset.json
     - assets/exercise_images/
+    - .env.supabase
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

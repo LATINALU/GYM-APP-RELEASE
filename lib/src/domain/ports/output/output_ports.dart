@@ -15,3 +15,4 @@ export 'nutrition_repository_port.dart';
 export 'pending_registration_repository_port.dart';
 export 'access_code_repository_port.dart';
 export 'member_number_allocator_port.dart';
+export 'measurement_repository_port.dart';

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Firebase
 import 'package:gym_app/firebase_options.dart';
@@ -23,6 +24,10 @@ import 'src/domain/data/dataset_exercise_catalog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Piloto Supabase (módulo Mediciones): config no-secreta por defecto en
+  // .env.supabase.example, override local en .env.supabase (gitignored).
+  await dotenv.load(fileName: '.env.supabase');
 
   // Initialize date formatting for Spanish
   await initializeDateFormatting('es_ES', null);
