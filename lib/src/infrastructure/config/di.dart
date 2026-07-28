@@ -22,6 +22,7 @@ import '../adapters/supabase/supabase_recovery_repository.dart';
 import '../adapters/supabase/supabase_volume_repository.dart';
 import '../adapters/supabase/supabase_nutrition_repository.dart';
 import '../adapters/supabase/supabase_access_code_repository.dart';
+import '../adapters/supabase/supabase_pending_registration_repository.dart';
 import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
@@ -424,8 +425,12 @@ Future<void> configureDependencies() async {
   // ═══════════════════════════════════════════════════════════════════════════
 
   if (!getIt.isRegistered<PendingRegistrationRepositoryPort>()) {
+    final useSupabasePendingRegistrations =
+        dotenv.env['USE_SUPABASE_PENDING_REGISTRATIONS'] == 'true';
     getIt.registerLazySingleton<PendingRegistrationRepositoryPort>(
-      () => FirebasePendingRegistrationRepository(getIt<FirebaseFirestore>()),
+      () => useSupabasePendingRegistrations
+          ? SupabasePendingRegistrationRepository(getIt<SupabaseClient>())
+          : FirebasePendingRegistrationRepository(getIt<FirebaseFirestore>()),
     );
   }
 
