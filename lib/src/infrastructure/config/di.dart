@@ -20,6 +20,7 @@ import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/supabase/supabase_measurement_repository.dart';
 import '../adapters/supabase/supabase_recovery_repository.dart';
 import '../adapters/supabase/supabase_volume_repository.dart';
+import '../adapters/supabase/supabase_nutrition_repository.dart';
 import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
@@ -309,8 +310,11 @@ Future<void> configureDependencies() async {
   }
 
   if (!getIt.isRegistered<NutritionRepositoryPort>()) {
+    final useSupabaseNutrition = dotenv.env['USE_SUPABASE_NUTRITION'] == 'true';
     getIt.registerLazySingleton<NutritionRepositoryPort>(
-      () => FirebaseNutritionRepository(getIt<FirebaseFirestore>()),
+      () => useSupabaseNutrition
+          ? SupabaseNutritionRepository(getIt<SupabaseClient>())
+          : FirebaseNutritionRepository(getIt<FirebaseFirestore>()),
     );
   }
 
