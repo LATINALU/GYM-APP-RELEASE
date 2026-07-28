@@ -70,8 +70,10 @@ dependencies:
   # Plain `supabase` client on purpose: this pilot never uses Supabase's own
   # Auth (GoTrue) or Flutter-widget integrations, only PostgREST via the JWT
   # bridge, so there's no need for supabase_flutter's Flutter dependency.
+  # No JWT-signing package here on purpose: the bridge no longer signs
+  # tokens client-side (see supabase_jwt_bridge.dart) — it exchanges the
+  # real Firebase ID token for a Supabase JWT via a server-side function.
   supabase: ^2.8.0
-  dart_jsonwebtoken: ^2.14.0
   flutter_dotenv: ^5.2.1
 
 

@@ -58,12 +58,14 @@ Future<void> configureDependencies() async {
   }
 
   // Piloto Supabase self-hosted (solo módulo Mediciones, ver plan de
-  // arquitectura). No usa Supabase Auth: el bridge firma un JWT propio a
-  // partir de la sesión de Firebase.
+  // arquitectura). No usa Supabase Auth: el bridge intercambia el ID token
+  // real de Firebase por un JWT de Supabase vía una función server-side
+  // (nunca firma nada con un secreto embebido en el cliente).
   if (!getIt.isRegistered<SupabaseJwtBridge>()) {
     getIt.registerLazySingleton<SupabaseJwtBridge>(
       () => SupabaseJwtBridge(
-        signingSecret: dotenv.env['SUPABASE_JWT_BRIDGE_SECRET'] ?? '',
+        endpoint: Uri.parse(dotenv.env['SUPABASE_JWT_BRIDGE_URL'] ?? ''),
+        httpClient: getIt<http.Client>(),
       ),
     );
   }
@@ -73,7 +75,7 @@ Future<void> configureDependencies() async {
       () => SupabaseClient(
         dotenv.env['SUPABASE_URL'] ?? '',
         dotenv.env['SUPABASE_ANON_KEY'] ?? '',
-        accessToken: () async => getIt<SupabaseJwtBridge>().mintAccessToken(),
+        accessToken: () => getIt<SupabaseJwtBridge>().mintAccessToken(),
       ),
     );
   }
