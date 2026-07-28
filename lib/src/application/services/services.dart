@@ -1,6 +1,5 @@
 // Core Business Services
 export 'finance_service.dart';
-export 'staff_service.dart';
 
 // Fitness & Nutrition
 export 'nutrition_service.dart';
