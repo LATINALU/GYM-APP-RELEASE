@@ -18,6 +18,7 @@ import '../../application/services/measurement_service.dart';
 import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/supabase/supabase_measurement_repository.dart';
+import '../adapters/supabase/supabase_recovery_repository.dart';
 import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
@@ -289,8 +290,11 @@ Future<void> configureDependencies() async {
   // ═══════════════════════════════════════════════════════════════════════════
 
   if (!getIt.isRegistered<RecoveryRepositoryPort>()) {
+    final useSupabaseRecovery = dotenv.env['USE_SUPABASE_RECOVERY'] == 'true';
     getIt.registerLazySingleton<RecoveryRepositoryPort>(
-      () => FirebaseRecoveryRepository(getIt<FirebaseFirestore>()),
+      () => useSupabaseRecovery
+          ? SupabaseRecoveryRepository(getIt<SupabaseClient>())
+          : FirebaseRecoveryRepository(getIt<FirebaseFirestore>()),
     );
   }
 
