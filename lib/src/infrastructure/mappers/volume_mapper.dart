@@ -10,4 +10,25 @@ class VolumeMapper {
     data['id'] = id;
     return MuscleVolumeRecord.restore(data);
   }
+
+  /// Columnas snake_case de `public.volume_records` (Fase 1 de la
+  /// migración a Supabase, ver 0003_volume_records.sql).
+  static Map<String, dynamic> toSupabase(MuscleVolumeRecord record) {
+    final map = record.toMap();
+    return {
+      'id': map['id'],
+      'user_id': map['userId'],
+      'week_start': map['weekStart'],
+      'volumes': map['volumes'],
+    };
+  }
+
+  static MuscleVolumeRecord fromSupabase(Map<String, dynamic> row) {
+    return MuscleVolumeRecord.restore({
+      'id': row['id'],
+      'userId': row['user_id'],
+      'weekStart': row['week_start'],
+      'volumes': row['volumes'],
+    });
+  }
 }

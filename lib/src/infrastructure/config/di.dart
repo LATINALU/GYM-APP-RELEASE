@@ -19,6 +19,7 @@ import '../adapters/firebase/firebase_adapters.dart';
 import '../adapters/firebase/firebase_owner_member_repository.dart';
 import '../adapters/supabase/supabase_measurement_repository.dart';
 import '../adapters/supabase/supabase_recovery_repository.dart';
+import '../adapters/supabase/supabase_volume_repository.dart';
 import '../services/supabase_jwt_bridge.dart';
 import '../adapters/local/local_exercise_repository.dart';
 import '../adapters/local/exercise_media_factory.dart';
@@ -299,8 +300,11 @@ Future<void> configureDependencies() async {
   }
 
   if (!getIt.isRegistered<VolumeRepositoryPort>()) {
+    final useSupabaseVolume = dotenv.env['USE_SUPABASE_VOLUME'] == 'true';
     getIt.registerLazySingleton<VolumeRepositoryPort>(
-      () => FirebaseVolumeRepository(getIt<FirebaseFirestore>()),
+      () => useSupabaseVolume
+          ? SupabaseVolumeRepository(getIt<SupabaseClient>())
+          : FirebaseVolumeRepository(getIt<FirebaseFirestore>()),
     );
   }
 
