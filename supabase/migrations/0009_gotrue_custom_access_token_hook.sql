@@ -48,10 +48,25 @@ create policy "admins_delete"
   on public.admins for delete
   using (public.is_admin());
 
+-- SECURITY DEFINER es imprescindible acá, no un detalle de estilo:
+-- GoTrue invoca esta función como el rol supabase_auth_admin, que NO
+-- tiene BYPASSRLS (verificado: rolbypassrls=false). Sin
+-- SECURITY DEFINER, el "select ... from gym_members" de abajo queda
+-- sujeto a las policies de gym_members_select (que a su vez dependen
+-- de auth.jwt(), inexistente en este momento porque el token todavía
+-- se está emitiendo) — la fila queda invisible, `found` da false
+-- SIEMPRE, y el hook nunca agrega app_role/gym_id, sin ningún error
+-- visible. Se detectó exactamente así en el smoke test end-to-end (28
+-- jul 2026): login exitoso, JWT sin los claims. La función se crea
+-- como el dueño `postgres`, que sí tiene BYPASSRLS en este stack
+-- self-hosted (verificado) — set search_path fijo por buena práctica
+-- de seguridad en funciones SECURITY DEFINER (evita search_path hijacking).
 create or replace function public.custom_access_token_hook(event jsonb)
 returns jsonb
 language plpgsql
 stable
+security definer
+set search_path = public, pg_temp
 as $$
 declare
   claims jsonb;
