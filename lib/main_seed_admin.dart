@@ -15,7 +15,7 @@ import 'src/infrastructure/config/di.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await configureDependencies();
+  await configureCoreDependencies();
 
   final adminConfig = await _loadAdminConfig();
   final authRepository = getIt<AuthRepositoryPort>();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/value_objects/value_objects.dart';
+import '../../../../core/app_flavor.dart';
 import '../../../../core/auth/auth_state_notifier.dart';
 import '../auth/pages/login_screen.dart';
 import '../auth/pages/forgot_password_screen.dart';
@@ -54,456 +55,490 @@ import '../../domain/entities/entities.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 // Legacy views removed - keeping only the active architecture
 
-/// Application Router with role-based redirection
+/// Router de la app, armado por flavor: cada uno de los 4 builds publicados
+/// (cliente/staff/owner/admin) compila solo las rutas de su propio rol, más
+/// un puñado de rutas compartidas (login, perfil, ajustes). El acceso ya no
+/// se controla filtrando por prefijo sobre un árbol único: si el rol de la
+/// cuenta no corresponde al flavor de la app, se rechaza en el redirect.
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  static final GoRouter router = GoRouter(
-    navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
-    debugLogDiagnostics: true,
-    refreshListenable: AuthStateNotifier.instance,
-    redirect: _handleRedirect,
-    routes: [
-      // Auth Routes
-      GoRoute(
-        path: '/login',
-        name: 'login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/register',
-        name: 'register',
-        builder: (context, state) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: '/forgot-password',
-        name: 'forgotPassword',
-        builder: (context, state) => const ForgotPasswordScreen(),
-      ),
-      GoRoute(
-        path: '/profile',
-        name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
-        routes: [
-          GoRoute(
-            path: 'edit',
-            name: 'editProfile',
-            builder: (context, state) => const EditProfileScreen(),
-          ),
-        ],
-      ),
-
-      GoRoute(
-        path: '/settings',
-        name: 'settings',
-        builder:
-            (context, state) => BlocProvider(
-              create: (context) => getIt<SettingsBloc>()..add(LoadSettings()),
-              child: const SettingsScreen(),
-            ),
-        routes: [
-          GoRoute(
-            path: 'notifications',
-            name: 'notificationSettings',
-            builder:
-                (context, state) => BlocProvider(
-                  create:
-                      (context) => getIt<SettingsBloc>()..add(LoadSettings()),
-                  child: const NotificationSettingsScreen(),
-                ),
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/help-support',
-        name: 'helpSupport',
-        builder: (context, state) => const HelpSupportScreen(),
-      ),
-
-      // ═══════════════════════════════════════════════════════════════════
-      // ADMIN ROUTES (Super Admin Shell)
-      // ═══════════════════════════════════════════════════════════════════
-      ShellRoute(
-        builder: (context, state, child) => AdminSuperLayout(child: child),
-        routes: [
-          GoRoute(
-            path: '/admin/dashboard',
-            name: 'adminDashboard',
-            builder: (context, state) => const AdminDashboardScreen(),
-          ),
-          GoRoute(
-            path: '/admin/gyms',
-            name: 'adminGyms',
-            builder: (context, state) => const AdminGymsLiveScreen(),
-          ),
-          GoRoute(
-            path: '/admin/owners',
-            name: 'adminOwners',
-            builder: (context, state) => const AdminOwnersLiveScreen(),
-          ),
-          GoRoute(
-            path: '/admin/reports',
-            name: 'adminReports',
-            builder: (context, state) => const AdminReportsScreen(),
-          ),
-          GoRoute(
-            path: '/admin/billing',
-            name: 'adminBilling',
-            builder: (context, state) => const AdminBillingScreen(),
-          ),
-          GoRoute(
-            path: '/admin/audit',
-            name: 'adminAudit',
-            builder: (context, state) => const AdminAuditScreen(),
-          ),
-          GoRoute(
-            path: '/admin/settings',
-            name: 'adminSettings',
-            builder: (context, state) => const AdminSettingsScreen(),
-          ),
-          GoRoute(
-            path: '/admin/exercises',
-            name: 'adminExercises',
-            builder: (context, state) => const AdminExerciseLibraryScreen(),
-          ),
-          GoRoute(
-            path: '/admin/forge',
-            name: 'adminForge',
-            builder: (context, state) => const TrainingForgeScreen(),
-          ),
-        ],
-      ),
-
-      // ═══════════════════════════════════════════════════════════════════
-      // OWNER ROUTES (PC Optimized Shell)
-      // ═══════════════════════════════════════════════════════════════════
-      ShellRoute(
-        builder: (context, state, child) => AdminLayout(child: child),
-        routes: [
-          GoRoute(
-            path: '/owner/dashboard',
-            name: 'ownerDashboard',
-            builder: (context, state) => const OwnerDashboardScreen(),
-          ),
-          GoRoute(
-            path: '/owner/atlas',
-            name: 'ownerAtlas',
-            builder: (context, state) => const ExerciseAtlasScreen(),
-          ),
-          GoRoute(
-            path: '/owner/exercise-builder',
-            name: 'ownerExerciseBuilder',
-            builder: (context, state) => const ExerciseBuilderScreen(),
-          ),
-          GoRoute(
-            path: '/owner/routine-builder',
-            name: 'ownerRoutineBuilder',
-            builder: (context, state) => const SimpleRoutineBuilderScreen(),
-          ),
-          GoRoute(
-            path: '/owner/program-builder',
-            name: 'ownerProgramBuilder',
-            builder: (context, state) => const ProgramBuilderScreen(),
-          ),
-          GoRoute(
-            path: '/owner/finance',
-            name: 'ownerFinance',
-            builder: (context, state) => const FinanceSubscriptionsScreen(),
-          ),
-          GoRoute(
-            path: '/owner/staff',
-            name: 'ownerStaff',
-            builder: (context, state) => const StaffManagementScreen(),
-          ),
-          GoRoute(
-            path: '/owner/dashboard-bi',
-            name: 'ownerBI',
-            builder: (context, state) => const BiDashboardScreen(),
-          ),
-          GoRoute(
-            path: '/owner/global-settings',
-            name: 'ownerSettings',
-            builder: (context, state) => const GlobalSettingsScreen(),
-          ),
-          GoRoute(
-            path: '/owner/retention',
-            name: 'ownerRetention',
-            builder: (context, state) => const RetentionPanelScreen(),
-          ),
-          GoRoute(
-            path: '/owner/members',
-            name: 'ownerMembers',
-            builder: (context, state) => const OwnerMembersScreen(),
-          ),
-          GoRoute(
-            path: '/owner/cash-close',
-            name: 'ownerCashClose',
-            builder:
-                (context, state) => const EnhancedCashReconciliationScreen(),
-          ),
-          GoRoute(
-            path: '/owner/pos-sales',
-            name: 'ownerPosSales',
-            builder: (context, state) => const PosSalesScreen(),
-          ),
-          GoRoute(
-            path: '/owner/pos-inventory',
-            name: 'ownerPosInventory',
-            builder: (context, state) => const PosInventoryScreen(),
-          ),
-          GoRoute(
-            path: '/owner/gym-info',
-            name: 'ownerGymInfo',
-            builder: (context, state) => const GymInfoScreen(),
-          ),
-          GoRoute(
-            path: '/owner/plans',
-            name: 'ownerPlans',
-            builder: (context, state) => const MembershipPlansScreen(),
-          ),
-          GoRoute(
-            path: '/owner/promotions',
-            name: 'ownerPromotions',
-            builder: (context, state) => const PromotionsScreen(),
-          ),
-          GoRoute(
-            path: '/owner/exercises',
-            name: 'ownerExercises',
-            builder: (context, state) => const OwnerExerciseLibraryScreen(),
-          ),
-          GoRoute(
-            path: '/owner/pending-registrations',
-            name: 'ownerPendingRegistrations',
-            builder: (context, state) {
-              final auth = AuthStateNotifier.instance;
-              return PendingRegistrationsScreen(
-                gymId: auth.profile?.gymId?.value ?? '',
-                currentUserId: auth.profile?.uid ?? '',
-              );
-            },
-          ),
-          GoRoute(
-            path: '/owner/forge',
-            name: 'ownerForge',
-            builder: (context, state) => const TrainingForgeScreen(),
-          ),
-        ],
-      ),
-
-      // Full-screen Owner Routes (No Sidebar)
-      GoRoute(
-        path: '/owner/add-member',
-        name: 'ownerAddMember',
-        builder: (context, state) => const OwnerMemberWizardScreen(),
-      ),
-
-      // Kiosk Mode (Full-screen, no sidebar, for desktop stations at gym)
-      GoRoute(
-        path: '/kiosk/routines',
-        name: 'kioskRoutines',
-        builder: (context, state) => KioskRoutineScreen(
-          gymId: state.uri.queryParameters['gymId'],
-        ),
-      ),
-
-      // Staff Routes (with bottom navigation shell)
-      ShellRoute(
-        builder: (context, state, child) => StaffMainLayout(child: child),
-        routes: [
-          GoRoute(
-            path: '/staff/home',
-            name: 'staffHome',
-            builder: (context, state) => const StaffHomeScreen(),
-          ),
-          GoRoute(
-            path: '/staff/qr-scanner',
-            name: 'staffQrScanner',
-            builder: (context, state) => const StaffQrScannerScreen(),
-          ),
-          GoRoute(
-            path: '/staff/routine-management',
-            name: 'staffRoutineManagement',
-            builder: (context, state) => const RoutineManagementScreen(),
-          ),
-        ],
-      ),
-
-      // Client Routes (Mobile Optimized Shell)
-      ShellRoute(
-        builder: (context, state, child) => ClientMainLayout(child: child),
-        routes: [
-          GoRoute(
-            path: '/client/home',
-            name: 'clientHome',
-            builder: (context, state) => const TrainingDashboardScreen(),
-          ),
-          GoRoute(
-            path: '/client/routine',
-            name: 'clientRoutine',
-            builder: (context, state) => const RoutineSelectionScreen(),
-          ),
-          GoRoute(
-            path: '/client/qr-checkin',
-            name: 'clientQrCheckin',
-            builder: (context, state) => const ClientQrCheckinScreen(),
-          ),
-          GoRoute(
-            path: '/client/analytics',
-            name: 'clientAnalytics',
-            builder: (context, state) => const ClientAnalyticsDashboardScreen(),
-          ),
-        ],
-      ),
-
-      // Standalone Client Routes (No Bottom Nav)
-      GoRoute(
-        path: '/client/qr',
-        name: 'clientQr',
-        builder: (context, state) => const ClientQrScreen(),
-      ),
-      GoRoute(
-        path: '/client/import-routine',
-        name: 'clientImportRoutine',
-        builder: (context, state) => const RoutineImportScannerScreen(),
-      ),
-      GoRoute(
-        path: '/classes/gym-classes',
-        name: 'gymClasses',
-        builder: (context, state) => const GymClassesScreen(),
-      ),
-      GoRoute(
-        path: '/client/digital-pass',
-        name: 'clientDigitalPass',
-        builder: (context, state) {
-          final auth = AuthStateNotifier.instance;
-          return ClientQrPassScreen(
-            userId: auth.profile?.uid ?? 'unknown',
-            userName: auth.profile?.displayName ?? 'Usuario',
-          );
-        },
-      ),
-
-      // Muscle Heatmap (standalone, no bottom nav)
-      GoRoute(
-        path: '/client/muscle-heatmap',
-        name: 'clientMuscleHeatmap',
-        builder: (context, state) => const ClientMuscleHeatmapScreen(),
-      ),
-
-      // New Client Features (Integrated into Shell if needed, or standalone)
-      GoRoute(
-        path: '/client/nutrition',
-        name: 'clientNutrition',
-        builder: (context, state) => const NutritionTrackingScreen(),
-      ),
-      GoRoute(
-        path: '/client/measurements',
-        name: 'clientMeasurements',
-        builder: (context, state) => const BodyMeasurementsScreen(),
-      ),
-      GoRoute(
-        path: '/client/recovery',
-        name: 'clientRecovery',
-        builder: (context, state) => const RecoveryScreen(),
-      ),
-      GoRoute(
-        path: '/client/volume',
-        name: 'clientVolume',
-        builder: (context, state) => const VolumeTrackingScreen(),
-      ),
-      GoRoute(
-        path: '/client/notifications',
-        name: 'clientNotifications',
-        builder: (context, state) => const NotificationsScreen(),
-      ),
-      GoRoute(
-        path: '/client/achievements',
-        name: 'clientAchievements',
-        builder: (context, state) => const AchievementsScreen(),
-      ),
-      GoRoute(
-        path: '/client/workout-analytics',
-        name: 'clientWorkoutAnalytics',
-        builder: (context, state) => const WorkoutAnalyticsScreen(),
-      ),
-      GoRoute(
-        path: '/client/timer',
-        name: 'clientTimer',
-        builder: (context, state) => const TrainingTimerScreen(),
-      ),
-      GoRoute(
-        path: '/client/community',
-        name: 'clientCommunity',
-        builder: (context, state) => const CommunityFeedScreen(),
-      ),
-      GoRoute(
-        path: '/client/leaderboard',
-        name: 'clientLeaderboard',
-        builder: (context, state) => const LeaderboardScreen(),
-      ),
-
-      // Active workout routes
-      GoRoute(
-        path: '/client/daily-workout',
-        name: 'clientDailyWorkout',
-        builder: (context, state) => const ActiveWorkoutScreen(),
-      ),
-      GoRoute(
-        path: '/client/manual-log',
-        name: 'clientManualLog',
-        builder: (context, state) => const ManualLogScreen(),
-      ),
-
-      // Onboarding
-      GoRoute(
-        path: '/onboarding',
-        name: 'onboarding',
-        builder:
-            (context, state) =>
-                OnboardingScreen(onComplete: () => context.go('/client/home')),
-      ),
-
-      // Root Route (redirects based on auth state via _handleRedirect)
-      GoRoute(
-        path: '/',
-        name: 'home',
-        builder: (context, state) => const _SplashScreen(),
-      ),
-    ],
-    errorBuilder:
-        (context, state) => Scaffold(
-          backgroundColor: const Color(0xFF0D0D1A),
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline_rounded,
-                  color: Colors.redAccent,
-                  size: 64,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Página no encontrada: ${state.uri}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => context.go('/'),
-                  child: const Text(
-                    'Volver al inicio',
-                    style: TextStyle(color: Color(0xFF00E0FF)),
+  static GoRouter build(AppFlavor flavor) {
+    return GoRouter(
+      navigatorKey: _rootNavigatorKey,
+      initialLocation: '/',
+      debugLogDiagnostics: true,
+      refreshListenable: AuthStateNotifier.instance,
+      redirect: (context, state) => _handleRedirect(context, state, flavor),
+      routes: [..._sharedRoutes, ..._routesForFlavor(flavor)],
+      errorBuilder:
+          (context, state) => Scaffold(
+            backgroundColor: const Color(0xFF0D0D1A),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 64,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  Text(
+                    'Página no encontrada: ${state.uri}',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.go('/'),
+                    child: const Text(
+                      'Volver al inicio',
+                      style: TextStyle(color: Color(0xFF00E0FF)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+    );
+  }
+
+  static List<RouteBase> _routesForFlavor(AppFlavor flavor) {
+    switch (flavor) {
+      case AppFlavor.admin:
+        return _adminRoutes;
+      case AppFlavor.owner:
+        return [..._ownerRoutes, _kioskRoute];
+      case AppFlavor.staff:
+        return [..._staffRoutes, _kioskRoute];
+      case AppFlavor.client:
+        return _clientRoutes;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // SHARED ROUTES (las 4 apps las incluyen)
+  // ═══════════════════════════════════════════════════════════════════════
+  static final List<RouteBase> _sharedRoutes = [
+    GoRoute(
+      path: '/login',
+      name: 'login',
+      builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      name: 'register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      name: 'forgotPassword',
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: '/profile',
+      name: 'profile',
+      builder: (context, state) => const ProfileScreen(),
+      routes: [
+        GoRoute(
+          path: 'edit',
+          name: 'editProfile',
+          builder: (context, state) => const EditProfileScreen(),
         ),
+      ],
+    ),
+    GoRoute(
+      path: '/settings',
+      name: 'settings',
+      builder:
+          (context, state) => BlocProvider(
+            create: (context) => getIt<SettingsBloc>()..add(LoadSettings()),
+            child: const SettingsScreen(),
+          ),
+      routes: [
+        GoRoute(
+          path: 'notifications',
+          name: 'notificationSettings',
+          builder:
+              (context, state) => BlocProvider(
+                create: (context) => getIt<SettingsBloc>()..add(LoadSettings()),
+                child: const NotificationSettingsScreen(),
+              ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/help-support',
+      name: 'helpSupport',
+      builder: (context, state) => const HelpSupportScreen(),
+    ),
+    // Root Route (redirects based on auth state via _handleRedirect)
+    GoRoute(
+      path: '/',
+      name: 'home',
+      builder: (context, state) => const _SplashScreen(),
+    ),
+  ];
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ADMIN ROUTES (Super Admin Shell) — app interna, no publicada
+  // ═══════════════════════════════════════════════════════════════════════
+  static final List<RouteBase> _adminRoutes = [
+    ShellRoute(
+      builder: (context, state, child) => AdminSuperLayout(child: child),
+      routes: [
+        GoRoute(
+          path: '/admin/dashboard',
+          name: 'adminDashboard',
+          builder: (context, state) => const AdminDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/admin/gyms',
+          name: 'adminGyms',
+          builder: (context, state) => const AdminGymsLiveScreen(),
+        ),
+        GoRoute(
+          path: '/admin/owners',
+          name: 'adminOwners',
+          builder: (context, state) => const AdminOwnersLiveScreen(),
+        ),
+        GoRoute(
+          path: '/admin/reports',
+          name: 'adminReports',
+          builder: (context, state) => const AdminReportsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/billing',
+          name: 'adminBilling',
+          builder: (context, state) => const AdminBillingScreen(),
+        ),
+        GoRoute(
+          path: '/admin/audit',
+          name: 'adminAudit',
+          builder: (context, state) => const AdminAuditScreen(),
+        ),
+        GoRoute(
+          path: '/admin/settings',
+          name: 'adminSettings',
+          builder: (context, state) => const AdminSettingsScreen(),
+        ),
+        GoRoute(
+          path: '/admin/exercises',
+          name: 'adminExercises',
+          builder: (context, state) => const AdminExerciseLibraryScreen(),
+        ),
+        GoRoute(
+          path: '/admin/forge',
+          name: 'adminForge',
+          builder: (context, state) => const TrainingForgeScreen(),
+        ),
+      ],
+    ),
+  ];
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // OWNER ROUTES (PC Optimized Shell)
+  // ═══════════════════════════════════════════════════════════════════════
+  static final List<RouteBase> _ownerRoutes = [
+    ShellRoute(
+      builder: (context, state, child) => AdminLayout(child: child),
+      routes: [
+        GoRoute(
+          path: '/owner/dashboard',
+          name: 'ownerDashboard',
+          builder: (context, state) => const OwnerDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/owner/atlas',
+          name: 'ownerAtlas',
+          builder: (context, state) => const ExerciseAtlasScreen(),
+        ),
+        GoRoute(
+          path: '/owner/exercise-builder',
+          name: 'ownerExerciseBuilder',
+          builder: (context, state) => const ExerciseBuilderScreen(),
+        ),
+        GoRoute(
+          path: '/owner/routine-builder',
+          name: 'ownerRoutineBuilder',
+          builder: (context, state) => const SimpleRoutineBuilderScreen(),
+        ),
+        GoRoute(
+          path: '/owner/program-builder',
+          name: 'ownerProgramBuilder',
+          builder: (context, state) => const ProgramBuilderScreen(),
+        ),
+        GoRoute(
+          path: '/owner/finance',
+          name: 'ownerFinance',
+          builder: (context, state) => const FinanceSubscriptionsScreen(),
+        ),
+        GoRoute(
+          path: '/owner/staff',
+          name: 'ownerStaff',
+          builder: (context, state) => const StaffManagementScreen(),
+        ),
+        GoRoute(
+          path: '/owner/dashboard-bi',
+          name: 'ownerBI',
+          builder: (context, state) => const BiDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/owner/global-settings',
+          name: 'ownerSettings',
+          builder: (context, state) => const GlobalSettingsScreen(),
+        ),
+        GoRoute(
+          path: '/owner/retention',
+          name: 'ownerRetention',
+          builder: (context, state) => const RetentionPanelScreen(),
+        ),
+        GoRoute(
+          path: '/owner/members',
+          name: 'ownerMembers',
+          builder: (context, state) => const OwnerMembersScreen(),
+        ),
+        GoRoute(
+          path: '/owner/cash-close',
+          name: 'ownerCashClose',
+          builder: (context, state) => const EnhancedCashReconciliationScreen(),
+        ),
+        GoRoute(
+          path: '/owner/pos-sales',
+          name: 'ownerPosSales',
+          builder: (context, state) => const PosSalesScreen(),
+        ),
+        GoRoute(
+          path: '/owner/pos-inventory',
+          name: 'ownerPosInventory',
+          builder: (context, state) => const PosInventoryScreen(),
+        ),
+        GoRoute(
+          path: '/owner/gym-info',
+          name: 'ownerGymInfo',
+          builder: (context, state) => const GymInfoScreen(),
+        ),
+        GoRoute(
+          path: '/owner/plans',
+          name: 'ownerPlans',
+          builder: (context, state) => const MembershipPlansScreen(),
+        ),
+        GoRoute(
+          path: '/owner/promotions',
+          name: 'ownerPromotions',
+          builder: (context, state) => const PromotionsScreen(),
+        ),
+        GoRoute(
+          path: '/owner/exercises',
+          name: 'ownerExercises',
+          builder: (context, state) => const OwnerExerciseLibraryScreen(),
+        ),
+        GoRoute(
+          path: '/owner/pending-registrations',
+          name: 'ownerPendingRegistrations',
+          builder: (context, state) {
+            final auth = AuthStateNotifier.instance;
+            return PendingRegistrationsScreen(
+              gymId: auth.profile?.gymId?.value ?? '',
+              currentUserId: auth.profile?.uid ?? '',
+            );
+          },
+        ),
+        GoRoute(
+          path: '/owner/forge',
+          name: 'ownerForge',
+          builder: (context, state) => const TrainingForgeScreen(),
+        ),
+      ],
+    ),
+    // Full-screen Owner Routes (No Sidebar)
+    GoRoute(
+      path: '/owner/add-member',
+      name: 'ownerAddMember',
+      builder: (context, state) => const OwnerMemberWizardScreen(),
+    ),
+  ];
+
+  // Kiosk Mode (Full-screen, no sidebar, estación en el gym) — compartida
+  // entre las apps owner y staff, cada una la agrega a su propia lista.
+  static final RouteBase _kioskRoute = GoRoute(
+    path: '/kiosk/routines',
+    name: 'kioskRoutines',
+    builder:
+        (context, state) =>
+            KioskRoutineScreen(gymId: state.uri.queryParameters['gymId']),
   );
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // STAFF ROUTES (bottom navigation shell)
+  // ═══════════════════════════════════════════════════════════════════════
+  static final List<RouteBase> _staffRoutes = [
+    ShellRoute(
+      builder: (context, state, child) => StaffMainLayout(child: child),
+      routes: [
+        GoRoute(
+          path: '/staff/home',
+          name: 'staffHome',
+          builder: (context, state) => const StaffHomeScreen(),
+        ),
+        GoRoute(
+          path: '/staff/qr-scanner',
+          name: 'staffQrScanner',
+          builder: (context, state) => const StaffQrScannerScreen(),
+        ),
+        GoRoute(
+          path: '/staff/routine-management',
+          name: 'staffRoutineManagement',
+          builder: (context, state) => const RoutineManagementScreen(),
+        ),
+      ],
+    ),
+  ];
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLIENT ROUTES (Mobile Optimized Shell + standalone)
+  // ═══════════════════════════════════════════════════════════════════════
+  static final List<RouteBase> _clientRoutes = [
+    ShellRoute(
+      builder: (context, state, child) => ClientMainLayout(child: child),
+      routes: [
+        GoRoute(
+          path: '/client/home',
+          name: 'clientHome',
+          builder: (context, state) => const TrainingDashboardScreen(),
+        ),
+        GoRoute(
+          path: '/client/routine',
+          name: 'clientRoutine',
+          builder: (context, state) => const RoutineSelectionScreen(),
+        ),
+        GoRoute(
+          path: '/client/qr-checkin',
+          name: 'clientQrCheckin',
+          builder: (context, state) => const ClientQrCheckinScreen(),
+        ),
+        GoRoute(
+          path: '/client/analytics',
+          name: 'clientAnalytics',
+          builder: (context, state) => const ClientAnalyticsDashboardScreen(),
+        ),
+      ],
+    ),
+
+    // Standalone Client Routes (No Bottom Nav)
+    GoRoute(
+      path: '/client/qr',
+      name: 'clientQr',
+      builder: (context, state) => const ClientQrScreen(),
+    ),
+    GoRoute(
+      path: '/client/import-routine',
+      name: 'clientImportRoutine',
+      builder: (context, state) => const RoutineImportScannerScreen(),
+    ),
+    GoRoute(
+      path: '/classes/gym-classes',
+      name: 'gymClasses',
+      builder: (context, state) => const GymClassesScreen(),
+    ),
+    GoRoute(
+      path: '/client/digital-pass',
+      name: 'clientDigitalPass',
+      builder: (context, state) {
+        final auth = AuthStateNotifier.instance;
+        return ClientQrPassScreen(
+          userId: auth.profile?.uid ?? 'unknown',
+          userName: auth.profile?.displayName ?? 'Usuario',
+        );
+      },
+    ),
+
+    // Muscle Heatmap (standalone, no bottom nav)
+    GoRoute(
+      path: '/client/muscle-heatmap',
+      name: 'clientMuscleHeatmap',
+      builder: (context, state) => const ClientMuscleHeatmapScreen(),
+    ),
+
+    GoRoute(
+      path: '/client/nutrition',
+      name: 'clientNutrition',
+      builder: (context, state) => const NutritionTrackingScreen(),
+    ),
+    GoRoute(
+      path: '/client/measurements',
+      name: 'clientMeasurements',
+      builder: (context, state) => const BodyMeasurementsScreen(),
+    ),
+    GoRoute(
+      path: '/client/recovery',
+      name: 'clientRecovery',
+      builder: (context, state) => const RecoveryScreen(),
+    ),
+    GoRoute(
+      path: '/client/volume',
+      name: 'clientVolume',
+      builder: (context, state) => const VolumeTrackingScreen(),
+    ),
+    GoRoute(
+      path: '/client/notifications',
+      name: 'clientNotifications',
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/client/achievements',
+      name: 'clientAchievements',
+      builder: (context, state) => const AchievementsScreen(),
+    ),
+    GoRoute(
+      path: '/client/workout-analytics',
+      name: 'clientWorkoutAnalytics',
+      builder: (context, state) => const WorkoutAnalyticsScreen(),
+    ),
+    GoRoute(
+      path: '/client/timer',
+      name: 'clientTimer',
+      builder: (context, state) => const TrainingTimerScreen(),
+    ),
+    GoRoute(
+      path: '/client/community',
+      name: 'clientCommunity',
+      builder: (context, state) => const CommunityFeedScreen(),
+    ),
+    GoRoute(
+      path: '/client/leaderboard',
+      name: 'clientLeaderboard',
+      builder: (context, state) => const LeaderboardScreen(),
+    ),
+
+    // Active workout routes
+    GoRoute(
+      path: '/client/daily-workout',
+      name: 'clientDailyWorkout',
+      builder: (context, state) => const ActiveWorkoutScreen(),
+    ),
+    GoRoute(
+      path: '/client/manual-log',
+      name: 'clientManualLog',
+      builder: (context, state) => const ManualLogScreen(),
+    ),
+
+    // Onboarding
+    GoRoute(
+      path: '/onboarding',
+      name: 'onboarding',
+      builder:
+          (context, state) =>
+              OnboardingScreen(onComplete: () => context.go('/client/home')),
+    ),
+  ];
+
   /// Handle authentication and role-based redirects
-  static String? _handleRedirect(BuildContext context, GoRouterState state) {
+  static Future<String?> _handleRedirect(
+    BuildContext context,
+    GoRouterState state,
+    AppFlavor flavor,
+  ) async {
     final auth = AuthStateNotifier.instance;
     final isAuthRoute =
         state.matchedLocation == '/login' ||
@@ -519,75 +554,56 @@ class AppRouter {
       return '/';
     }
 
+    final roleType = profile.role?.type;
+    if (roleType == null || !_roleMatchesFlavor(roleType, flavor)) {
+      // Esta cuenta no tiene el rol que corresponde a esta app (ej. un
+      // cliente abrió la app de dueño por error): se rechaza de plano en
+      // vez de redirigir a una sección que ni siquiera existe en este build.
+      await auth.signOut();
+      return '/login';
+    }
+
     if (isAuthRoute || state.matchedLocation == '/') {
-      return _getHomeRouteForRole(profile.role!);
+      return _homeRouteForFlavor(flavor);
     }
 
-    if (!_canAccessRoute(profile.role!, state.matchedLocation)) {
-      return _getHomeRouteForRole(profile.role!);
-    }
-
-    // New Protection: Mandatory QR Pass for pending clients
-    final isPendingClient =
-        profile.role?.type == GymRoleType.client &&
-        (profile.membershipStatus == MembershipStatus.pending ||
-            profile.gymId?.value == 'orphan-gym');
-
-    if (isPendingClient && state.matchedLocation != '/client/digital-pass') {
-      return '/client/digital-pass';
+    // Mandatory QR Pass for pending clients
+    if (flavor == AppFlavor.client) {
+      final isPendingClient =
+          profile.membershipStatus == MembershipStatus.pending ||
+          profile.gymId?.value == 'orphan-gym';
+      if (isPendingClient && state.matchedLocation != '/client/digital-pass') {
+        return '/client/digital-pass';
+      }
     }
 
     return null;
   }
 
-  static String _getHomeRouteForRole(dynamic role) {
-    if (role is GymRole) {
-      switch (role.type) {
-        case GymRoleType.admin:
-          return '/admin/dashboard';
-        case GymRoleType.owner:
-          return '/owner/dashboard';
-        case GymRoleType.employee:
-          return '/staff/home';
-        case GymRoleType.client:
-          return '/client/home';
-      }
+  static String _homeRouteForFlavor(AppFlavor flavor) {
+    switch (flavor) {
+      case AppFlavor.admin:
+        return '/admin/dashboard';
+      case AppFlavor.owner:
+        return '/owner/dashboard';
+      case AppFlavor.staff:
+        return '/staff/home';
+      case AppFlavor.client:
+        return '/client/home';
     }
-
-    final roleString = role.toString().toLowerCase();
-    if (roleString.contains('admin') || roleString.contains('administrador')) {
-      return '/admin/dashboard';
-    }
-    if (roleString.contains('owner') || roleString.contains('dueño')) {
-      return '/owner/dashboard';
-    }
-    if (roleString.contains('employee') ||
-        roleString.contains('staff') ||
-        roleString.contains('empleado')) {
-      return '/staff/home';
-    }
-    return '/client/home';
   }
 
-  static bool _canAccessRoute(dynamic role, String location) {
-    if (role is! GymRole) return false;
-    // Admin can access everything
-    if (role.type == GymRoleType.admin) return true;
-    // Kiosk requiere sesión de staff/owner: las reglas de Firestore no
-    // permiten leer rutinas sin autenticación, y una estación pública no
-    // debe quedar con acceso al resto del panel
-    if (location.startsWith('/kiosk')) {
-      return role.type == GymRoleType.owner ||
-          role.type == GymRoleType.employee;
+  static bool _roleMatchesFlavor(GymRoleType type, AppFlavor flavor) {
+    switch (flavor) {
+      case AppFlavor.admin:
+        return type == GymRoleType.admin;
+      case AppFlavor.owner:
+        return type == GymRoleType.owner;
+      case AppFlavor.staff:
+        return type == GymRoleType.employee;
+      case AppFlavor.client:
+        return type == GymRoleType.client;
     }
-    if (location.startsWith('/admin')) return role.type == GymRoleType.admin;
-    if (location.startsWith('/owner')) return role.type == GymRoleType.owner;
-    if (location.startsWith('/staff')) {
-      return role.type == GymRoleType.owner ||
-          role.type == GymRoleType.employee;
-    }
-    if (location.startsWith('/client')) return role.type == GymRoleType.client;
-    return true;
   }
 }
 

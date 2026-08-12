@@ -35,15 +35,15 @@ import '../adapters/cached_user_repository.dart';
 import '../services/local_cache_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/rust_member_number_allocator.dart';
-import '../../presentation/bloc/app_bloc.dart';
-import '../../presentation/screens/settings/bloc/settings_bloc.dart';
-import '../../presentation/routines/bloc/routine_bloc.dart';
 
 /// Global service locator instance
 final GetIt getIt = GetIt.instance;
 
-/// Initialize all dependencies
-Future<void> configureDependencies() async {
+/// Initialize all role-agnostic dependencies: Firebase/Supabase clients,
+/// repository ports, use cases, application services. Shared by the 4
+/// published apps (client/staff/owner/admin) — no presentation-layer BLoCs
+/// here, esos se registran por flavor en `presentation_di.dart`.
+Future<void> configureCoreDependencies() async {
   // ═══════════════════════════════════════════════════════════════════════════
   // EXTERNAL SERVICES (Firebase)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -397,34 +397,6 @@ Future<void> configureDependencies() async {
         routineRepository: getIt<RoutineRepositoryPort>(),
         assignmentRepository: getIt<AssignmentRepositoryPort>(),
       ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BLOCS - Consolidated to 4 main functions
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  // AppBloc - Unified state management (replaces HomeBloc + ClientBloc)
-  if (!getIt.isRegistered<AppBloc>()) {
-    getIt.registerFactory<AppBloc>(
-      () => AppBloc(getClientProfileUseCase: getIt<GetClientProfileUseCase>()),
-    );
-  }
-
-  // RoutineBloc - Routine management
-  if (!getIt.isRegistered<RoutineBloc>()) {
-    getIt.registerFactory<RoutineBloc>(
-      () => RoutineBloc(
-        manageRoutineUseCase: getIt<ManageRoutineUseCasePort>(),
-        seedRoutinesUseCase: getIt<SeedRoutinesUseCase>(),
-      ),
-    );
-  }
-
-  // SettingsBloc - App settings
-  if (!getIt.isRegistered<SettingsBloc>()) {
-    getIt.registerFactory<SettingsBloc>(
-      () => SettingsBloc(getIt<SettingsRepositoryPort>()),
     );
   }
 

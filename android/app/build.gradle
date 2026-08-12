@@ -42,14 +42,40 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.quantum"
+        // applicationId real se define por flavor más abajo (client/staff/
+        // owner/admin) — este queda como fallback si algún build corre sin
+        // -flavor especificado.
+        applicationId = "com.quantumgym.client"
         // You can update the following values to match your application needs.
         // For more information, see: https://docs.flutter.dev/deployment/android#reviewing-the-gradle-build-configuration.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
+    }
+
+    flavorDimensions = ["role"]
+    productFlavors {
+        client {
+            dimension "role"
+            applicationId "com.quantumgym.client"
+            resValue "string", "app_name", "Quantum Gym"
+        }
+        staff {
+            dimension "role"
+            applicationId "com.quantumgym.staff"
+            resValue "string", "app_name", "Quantum Gym Staff"
+        }
+        owner {
+            dimension "role"
+            applicationId "com.quantumgym.owner"
+            resValue "string", "app_name", "Quantum Gym Owner"
+        }
+        admin {
+            dimension "role"
+            applicationId "com.quantumgym.admin"
+            resValue "string", "app_name", "Quantum Gym Admin"
+        }
     }
 
     buildTypes {
